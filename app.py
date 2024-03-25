@@ -3,7 +3,7 @@ app.py contains all of the server application
 this is where you'll find all of the get/post request handlers
 the socket event handlers are inside of socket_routes.py
 '''
-
+"comment used for checking git commit"
 from flask import Flask, render_template, request, abort, url_for
 from flask_socketio import SocketIO
 import db
