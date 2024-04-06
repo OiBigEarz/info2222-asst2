@@ -10,8 +10,8 @@ Prisma docs also looks so much better in comparison
 or use SQLite, if you're not into fancy ORMs (but be mindful of Injection attacks :) )
 '''
 
-from sqlalchemy import String
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy import Column, Integer, String, ForeignKey, Enum
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from typing import Dict
 
 # data models
@@ -68,4 +68,29 @@ class Room():
         if user not in self.dict.keys():
             return None
         return self.dict[user]
+
+
+class Friendship(Base):
+    __tablename__ = "friendship"
+    
+    id = Column(Integer, primary_key=True)
+    user_1 = Column(String, ForeignKey('user.username'))
+    user_2 = Column(String, ForeignKey('user.username'))
+    
+    # Define relationships to the User model
+    user1 = relationship("User", foreign_keys=[user_1])
+    user2 = relationship("User", foreign_keys=[user_2])
+
+class FriendRequest(Base):
+    __tablename__ = "friend_request"
+    
+    id = Column(Integer, primary_key=True)
+    sender = Column(String, ForeignKey('user.username'))
+    receiver = Column(String, ForeignKey('user.username'))
+    status = Column(Enum('pending', 'accepted', 'rejected', name='request_status'))
+    
+    # Define relationships to the User model
+    sender_user = relationship("User", foreign_keys=[sender])
+    receiver_user = relationship("User", foreign_keys=[receiver])
+
     

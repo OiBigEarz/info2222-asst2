@@ -57,6 +57,43 @@
         <button onclick="send()">Send</button>
         <button onclick="leave()">Leave Room</button>
     </section>
+
+    <!-- Friends List Section -->
+    <section>
+        <h2>Friends</h2>
+        <ul>
+            {% for friend in friends %}
+            <li>{{ friend }}</li>
+            {% endfor %}
+        </ul>
+    </section>
+
+    <!-- Friend Requests Section -->
+    <section>
+        <h2>Friend Requests</h2>
+        <h3>Received</h3>
+        <ul>
+            {% for request in received_requests %}
+            <li>{{ request.sender }} - <button onclick="acceptFriendRequest({{ request.id }})">Accept</button> <button onclick="rejectFriendRequest({{ request.id }})">Reject</button></li>
+            {% endfor %}
+        </ul>
+        <h3>Sent</h3>
+        <ul>
+            {% for request in sent_requests %}
+            <li>{{ request.receiver }} - Pending</li>
+            {% endfor %}
+        </ul>
+    </section>
+    
+    <!-- Section to Send Friend Requests -->
+    <section>
+        <h2>Send Friend Request</h2>
+        <input id="friend_username" placeholder="Enter username">
+        <button onclick="sendFriendRequest()">Send Friend Request</button>
+    </section>
+
+
+
 </main>
 
 <script src="/static/js/libs/socket.io.min.js"></script>
@@ -156,6 +193,57 @@
         let box = $("#message_box");
         let child = $(`<p style="color:${color}; margin: 0px;"></p>`).text(message);
         box.append(child);
+    }
+
+    // Function to send a friend request
+    function sendFriendRequest() {
+        const receiver = $("#friend_username").val();  // Assuming you have an input field with id 'friend_username'
+        $.ajax({
+            url: "/add-friend",
+            type: "POST",
+            contentType: "application/json",
+            data: JSON.stringify({ sender: "{{ username }}", receiver: receiver }),
+            success: function(response) {
+                alert("Friend request sent!");
+            },
+            error: function(xhr, status, error) {
+                alert("Error sending friend request: " + xhr.responseText);
+            }
+        });
+    }
+
+    // Function to accept a friend request
+    function acceptFriendRequest(requestId) {
+        $.ajax({
+            url: "/accept-friend-request",
+            type: "POST",
+            contentType: "application/json",
+            data: JSON.stringify({ request_id: requestId }),
+            success: function(response) {
+                alert("Friend request accepted!");
+                location.reload();  // Reload the page to update the friends list
+            },
+            error: function(xhr, status, error) {
+                alert("Error accepting friend request: " + xhr.responseText);
+            }
+        });
+    }
+
+    // Function to reject a friend request
+    function rejectFriendRequest(requestId) {
+        $.ajax({
+            url: "/reject-friend-request",
+            type: "POST",
+            contentType: "application/json",
+            data: JSON.stringify({ request_id: requestId }),
+            success: function(response) {
+                alert("Friend request rejected!");
+                location.reload();  // Reload the page to update the list of friend requests
+            },
+            error: function(xhr, status, error) {
+                alert("Error rejecting friend request: " + xhr.responseText);
+            }
+        });
     }
     
 </script>

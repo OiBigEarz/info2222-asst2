@@ -78,9 +78,58 @@ def page_not_found(_):
 # home page, where the messaging app is
 @app.route("/home")
 def home():
-    if request.args.get("username") is None:
+    username = request.args.get("username")
+    if username is None:
         abort(404)
-    return render_template("home.jinja", username=request.args.get("username"))
+
+    # Fetch friends and friend requests
+    friends = db.list_friends(username)
+    received_requests, sent_requests = db.list_friend_requests(username)
+
+    return render_template("home.jinja", username=username, friends=friends,
+                           received_requests=received_requests, sent_requests=sent_requests)
+
+
+# Route to send a friend request
+@app.route("/add-friend", methods=["POST"])
+def add_friend():
+    if not request.is_json:
+        abort(400)  # Bad Request
+
+    sender = request.json.get("sender")
+    receiver = request.json.get("receiver")
+    
+    # You might want to add checks here to ensure both users exist
+    db.send_friend_request(sender, receiver)
+    return "Friend request sent successfully!", 200
+
+# Route to list all friends for a user
+@app.route("/list-friends/<username>")
+def list_friends(username):
+    friends = db.list_friends(username)
+    return render_template("friends_list.jinja", friends=friends, username=username)
+
+# Route to accept a friend request
+@app.route("/accept-friend-request", methods=["POST"])
+def accept_friend_request():
+    if not request.is_json:
+        abort(400)  # Bad Request
+    
+    request_id = request.json.get("request_id")
+    db.accept_friend_request(request_id)
+    return "Friend request accepted!", 200
+
+# Route to reject a friend request
+@app.route("/reject-friend-request", methods=["POST"])
+def reject_friend_request():
+    if not request.is_json:
+        abort(400)  # Bad Request
+    
+    request_id = request.json.get("request_id")
+    db.reject_friend_request(request_id)
+    return "Friend request rejected", 200
+
+
 
 
 
