@@ -29,18 +29,42 @@ Sign up page, pretty much the same as login.
         async function signup() {
             let username = $("#username").val();
             let password = $("#password").val();
-            let hashedPassword = CryptoJS.SHA256(password).toString(); // Hashing the password
+            let hashedPassword = CryptoJS.SHA256(password).toString();
 
-            let loginURL = "{{ url_for('signup_user') }}";
-            let res = await axios.post(loginURL, {
+            // Generate key pair
+            let keyPair = await window.crypto.subtle.generateKey(
+                {
+                    name: "RSA-OAEP",
+                    modulusLength: 2048, // Can be 1024, 2048, or 4096
+                    publicExponent: new Uint8Array([1, 0, 1]),
+                    hash: {name: "SHA-256"},
+                },
+                true, // whether the key is extractable (i.e. can be taken out of the web crypto API)
+                ["encrypt", "decrypt"]
+            );
+
+            // Export the public key to a readable format
+            let exportedPublicKey = await window.crypto.subtle.exportKey(
+                "spki",
+                keyPair.publicKey
+            );
+
+            // Encode public key to base64 to send to the server
+            let publicKeyBase64 = btoa(String.fromCharCode.apply(null, new Uint8Array(exportedPublicKey)));
+
+            let signupURL = "{{ url_for('signup_user') }}";
+            let res = await axios.post(signupURL, {
                 username: username,
-                password: hashedPassword
+                password: hashedPassword,
+                public_key: publicKeyBase64
             });
+
             if (!isValidURL(res.data)) {
                 alert(res.data);
                 return;
             }
             window.open(res.data, "_self");
         }
+        
     </script>
 {% endblock %}

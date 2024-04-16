@@ -68,9 +68,10 @@ def signup_user():
         abort(404)
     username = request.json.get("username")
     password = request.json.get("password")
+    public_key = request.json.get("public_key")  # Retrieve the public key from the request
 
     if db.get_user(username) is None:
-        db.insert_user(username, password)
+        db.insert_user(username, password, public_key)  # Pass the public key to your insert function
         return url_for('home', username=username)
     return "Error: User already exists!"
 
