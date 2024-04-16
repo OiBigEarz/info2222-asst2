@@ -8,6 +8,8 @@ from flask import Flask, render_template, request, abort, url_for
 from flask_socketio import SocketIO
 import db
 import secrets
+from werkzeug.security import check_password_hash
+
 
 # import logging
 
@@ -43,14 +45,16 @@ def login_user():
     username = request.json.get("username")
     password = request.json.get("password")
 
-    user =  db.get_user(username)
+    user = db.get_user(username)
     if user is None:
         return "Error: User does not exist!"
 
-    if user.password != password:
+    # Check if hashed password matches
+    if not check_password_hash(user.password, password):
         return "Error: Password does not match!"
 
-    return url_for('home', username=request.json.get("username"))
+    return url_for('home', username=username)
+
 
 # handles a get request to the signup page
 @app.route("/signup")

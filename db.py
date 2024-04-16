@@ -6,6 +6,8 @@ database file, containing all the logic to interface with the sql database
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from models import *
+from werkzeug.security import generate_password_hash
+
 
 from pathlib import Path
 
@@ -23,8 +25,9 @@ Base.metadata.create_all(engine)
 
 # inserts a user to the database
 def insert_user(username: str, password: str):
+    hashed_password = generate_password_hash(password)
     with Session(engine) as session:
-        user = User(username=username, password=password)
+        user = User(username=username, password=hashed_password)
         session.add(user)
         session.commit()
 
