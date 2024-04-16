@@ -12,6 +12,7 @@
     <input id="password"  type="password"/>
     <button onclick="login()">Login</button>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/crypto-js.min.js"></script>
     <script>
 
         // basically checks if the server returns an Error message instead of a URL
@@ -28,6 +29,9 @@
 
         // login function to well login...
         async function login() {
+            let username = $("#username").val();
+            let password = $("#password").val();
+            let hashedPassword = CryptoJS.SHA256(password).toString(); // Hashing the password
             // this fancy syntax is part of the Jinja syntax
             // login_user is a Python function, this gets the URL that calls that Python function
             // you know the one with the:
@@ -40,8 +44,8 @@
             // axios post is a fancy way of posting a request to the server,
             // we pass in the username and password here
             let res = await axios.post(loginURL, {
-                username: $("#username").val(),
-                password: $("#password").val()
+                username: username,
+                password: hashedPassword
             });
 
             // if the server sends in an error message, alert() the error message
@@ -53,7 +57,7 @@
             // redirects to the URL (ie. res.data),
             // we use _self here since we all hate that moment
             // when the browser opens a new tab
-            window.open(res.data, "_self")
+            window.open(res.data, "_self");
         }
     </script>
 {% endblock %}
