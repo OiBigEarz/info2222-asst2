@@ -130,8 +130,3 @@ def reject_friend_request():
     return "Friend request rejected", 200
 
 
-
-
-
-if __name__ == '__main__':
-    socketio.run(app)
