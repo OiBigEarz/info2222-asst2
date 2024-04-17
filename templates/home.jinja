@@ -102,23 +102,6 @@
 <script>
     let room_id = 0;
 
-    // when the user presses the "Enter" key inside of the "message box", 
-    // the message is sent to the server
-    $("#message").on("keyup", (e) => {
-        if (e.key == "Enter") {
-            send();
-        }
-    })
-
-    // when the user presses the enter key inside of the "receiver box"
-    // the user joins a (socket) room
-     $("#receiver").on("keyup", (e) => {
-        if (e.key == "Enter") {
-            join_room();
-        }
-    })
-
-
     $(document).ready(() => {
         // room_id is undefined if the user hasn't joined a room
         // we early return in this case
@@ -147,12 +130,56 @@
         add_message(msg, color);
     })
     
-    // we'll send the message to the server by emitting a "send" event
-    function send() {
-        let message = $("#message").val();
-        $("#message").val("");
-        socket.emit("send", username, message, room_id);  
-    } 
+    async function fetchPublicKey(username) {
+        const url = `/get-public-key/${username}`;
+        try {
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const data = await response.json();
+            const publicKey = await window.crypto.subtle.importKey(
+                "spki",
+                new Uint8Array(atob(data.public_key).split('').map(char => char.charCodeAt(0))),
+                {
+                    name: "RSA-OAEP",
+                    hash: {name: "SHA-256"}
+                },
+                true,
+                ["encrypt"]
+            );
+            return publicKey;
+        } catch (error) {
+            console.error("Error fetching public key:", error);
+            alert("Failed to fetch public key: " + error.message);
+        }
+    }
+
+    async function encryptMessage(publicKey, message) {
+        const encoder = new TextEncoder();
+        const encodedMessage = encoder.encode(message);
+        const encrypted = await window.crypto.subtle.encrypt(
+            {name: "RSA-OAEP"},
+            publicKey,
+            encodedMessage
+        );
+        return window.btoa(String.fromCharCode(...new Uint8Array(encrypted)));
+    }
+
+    async function send() {
+        const receiver = $("#receiver").val();
+        const message = $("#message").val();
+        $("#message").val("");  // Clear the input after getting the message
+
+        const publicKey = await fetchPublicKey(receiver);
+        if (!publicKey) {
+            alert('Could not fetch public key for encryption');
+            return;
+        }
+
+        const encryptedMessage = await encryptMessage(publicKey, message);
+        socket.emit("send", "{{ username }}", encryptedMessage, room_id);
+    }
 
     // we emit a join room event to the server to join a room
     function join_room() {
@@ -247,6 +274,23 @@
             }
         });
     }
+
+    // when the user presses the "Enter" key inside of the "message box", 
+    // the message is sent to the server
+    $("#message").on("keyup", (e) => {
+        if (e.key == "Enter") {
+            send();
+        }
+    })
+
+    // when the user presses the enter key inside of the "receiver box"
+    // the user joins a (socket) room
+     $("#receiver").on("keyup", (e) => {
+        if (e.key == "Enter") {
+            join_room();
+        }
+    })
+
     
 </script>
 {% endblock %}
