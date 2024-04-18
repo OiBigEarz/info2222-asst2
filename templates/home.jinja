@@ -230,14 +230,33 @@
 
 
     // Modify the existing incoming message handler to decrypt messages
-    socket.on("incoming", async (msg, color="black") => {
-        if (color === "black") { // Assuming encrypted messages are in 'black'
-            const decryptedMessage = await decryptMessage(msg);
-            add_message(decryptedMessage || "Decryption error", color);
+    socket.on("incoming", async (data, color = "black") => {
+        let messageToDisplay = "";
+        
+        if (typeof data === 'string') {
+            messageToDisplay = data;  // Handle system messages or notifications directly
+        } else if (typeof data === 'object' && data.message && data.username) {
+            if (data.username !== username) {  // Check if the message is from another user
+                if (color === "black") {  // Assume "black" color means it needs decryption
+                    const decryptedMessage = await decryptMessage(data.message);
+                    messageToDisplay = `${data.username}: ${decryptedMessage || "Decryption error"}`;
+                } else {
+                    messageToDisplay = `${data.username}: ${data.message}`;
+                }
+            } else {
+                // If the message is from the user themselves, use the already displayed message
+                return;  // No need to add the message again
+            }
         } else {
-            add_message(msg, color); // Non-encrypted messages
+            console.error("Received data in an unexpected format:", data);
+            messageToDisplay = "Error: Received data in an unexpected format.";
         }
-    })
+
+        add_message(messageToDisplay, color);
+    });
+
+
+
 
     
     async function fetchPublicKey(username) {
@@ -271,7 +290,7 @@
     async function send() {
         const receiver = $("#receiver").val();
         const message = $("#message").val();
-        $("#message").val("");  // Clear the input after getting the message
+        $("#message").val("");  // Clear the input after sending the message
 
         const publicKey = await fetchPublicKey(receiver);
         if (!publicKey) {
@@ -280,9 +299,15 @@
         }
 
         const encryptedMessage = await encryptMessage(publicKey, message);
-        console.log("Encrypted message sent: ", encryptedMessage);
-        socket.emit("send", "{{ username }}", encryptedMessage, room_id);
+        if (encryptedMessage) {
+            console.log("Encrypted message sent: ", encryptedMessage);
+            add_message(`${username}: ${message}`, "grey"); // Display the original message directly
+            socket.emit("send", username, encryptedMessage, room_id);
+        } else {
+            console.error("Failed to encrypt message");
+        }
     }
+
 
     async function encryptMessage(publicKey, message) {
         try {
