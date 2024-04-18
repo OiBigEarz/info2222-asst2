@@ -95,7 +95,6 @@ def home():
     return render_template("home.jinja", username=username, friends=friends,
                            received_requests=received_requests, sent_requests=sent_requests)
 
-
 # Route to send a friend request
 @app.route("/add-friend", methods=["POST"])
 def add_friend():
@@ -145,3 +144,5 @@ def get_public_key(username):
     print("Public key found:", user.public_key)
     return jsonify({"public_key": user.public_key}), 200
 
+if __name__ == '__main__':
+    socketio.run(app, host = 'localhost', port = 1204)
