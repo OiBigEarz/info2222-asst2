@@ -133,16 +133,6 @@
         add_message(msg, color);
     })
 
-    async function checkHMAC(msg, signature) {
-        let result = await window.crypto.subtle.veryfiy(
-            "HMAC",
-            HMACkey,
-            signature,
-            msg
-        );
-        return result;
-    }
-
     async function fetchPublicKey(username) {
         const url = `/get-public-key/${username}`;
         try {
@@ -191,7 +181,7 @@
         }
 
         const encryptedMessage = await encryptMessage(publicKey, message);
-        
+
         var enc = new TextEncoder("utf-8");
 
         window.crypto.subtle.generateKey(
@@ -208,7 +198,7 @@
                 enc.encode(encryptedMessage)
             ).then(signature => {
                 var b = new Uint8Array(signature);
-                var str = Array.prototype.map.call(b, x => x.toString(16).padStart(2, '0')).join("")
+                var arrSignature = Array.prototype.map.call(b, x => x.toString(16).padStart(2, '0')).join("")
             });
         });
         socket.emit("send", "{{ username }}", encryptedMessage, room_id);
