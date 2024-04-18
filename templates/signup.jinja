@@ -25,8 +25,37 @@ Sign up page, pretty much the same as login.
             return false;
         }
 
-        // this function is identical to login(), see login.jinja
-        let userPrivateKey;
+
+        function initDatabase() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open("chatAppDB", 1);  // Ensure the database name and version are consistent
+
+                request.onupgradeneeded = function(event) {
+                    const db = event.target.result;
+                    if (!db.objectStoreNames.contains("keys")) {
+                        db.createObjectStore("keys", { keyPath: "username" });
+                    }
+                };
+
+                request.onsuccess = function() {
+                    resolve(request.result);
+                };
+
+                request.onerror = function(event) {
+                    console.error("Database error: " + event.target.errorCode);
+                    reject(event.target.error);
+                };
+            });
+        }
+
+
+        async function storePrivateKey(username, privateKeyBase64) {
+            const db = await initDatabase();  // Ensuring the database is ready
+            const transaction = db.transaction(["keys"], "readwrite");
+            const store = transaction.objectStore("keys");
+            store.put({username: username, privateKey: privateKeyBase64});
+        }
+
 
         async function signup() {
             let username = $("#username").val();
@@ -45,8 +74,17 @@ Sign up page, pretty much the same as login.
                 ["encrypt", "decrypt"]
             );
 
-            // Store the private key securely in memory
-            userPrivateKey = keyPair.privateKey;
+            // Export the private key to a readable format
+            const exportedPrivateKey = await window.crypto.subtle.exportKey(
+                "pkcs8",
+                keyPair.privateKey
+            );
+
+            // Convert exported private key to Base64 to store it as a string in IndexedDB
+            const privateKeyBase64 = btoa(String.fromCharCode.apply(null, new Uint8Array(exportedPrivateKey)));
+
+            // Store the private key securely using IndexedDB
+            await storePrivateKey(username, privateKeyBase64);
 
             // Export the public key to a readable format
             let exportedPublicKey = await window.crypto.subtle.exportKey(
@@ -70,6 +108,6 @@ Sign up page, pretty much the same as login.
             }
             window.open(res.data, "_self");
         }
-        
+
     </script>
 {% endblock %}

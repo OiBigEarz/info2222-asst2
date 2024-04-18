@@ -102,6 +102,32 @@
 <script>
     let room_id = 0;
 
+    // This function initializes the database and upgrades it if necessary
+    function initDatabase() {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open("chatAppDB", 1);  // Ensure the database name and version are consistent
+
+            request.onupgradeneeded = function(event) {
+                const db = event.target.result;
+                if (!db.objectStoreNames.contains("keys")) {
+                    db.createObjectStore("keys", { keyPath: "username" });
+                    console.log("Database upgraded and 'keys' object store created.");
+                }
+            };
+
+            request.onsuccess = function() {
+                console.log("Database initialized successfully.");
+                resolve(request.result);
+            };
+
+            request.onerror = function(event) {
+                console.error("Database error: " + event.target.errorCode);
+                reject(event.target.error);
+            };
+        });
+    }
+
+
     $(document).ready(() => {
         // room_id is undefined if the user hasn't joined a room
         // we early return in this case
@@ -125,19 +151,105 @@
     // initializes the socket
     const socket = io();
 
-    // an incoming message arrives, we'll add the message to the message box
-    socket.on("incoming", (msg, color="black") => {
-        add_message(msg, color);
+    // Function to load private key from IndexedDB
+    async function loadPrivateKey(username) {
+        const db = await initDatabase();
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction(["keys"], "readonly");
+            const store = transaction.objectStore("keys");
+            const request = store.get(username);
+
+            request.onsuccess = function() {
+                if (request.result) {
+                    console.log("Private key loaded: ", request.result.privateKey);
+                    resolve(request.result.privateKey);
+                } else {
+                    console.error("No key found for username: ", username);
+                    reject("No key found");
+                }
+            };
+
+            request.onerror = function(event) {
+                console.error("Error retrieving key: ", event.target.error);
+                reject("Error retrieving key");
+            };
+        });
+    }
+    
+    function isBase64(str) {
+        try {
+            btoa(atob(str)); // This will throw an error if 'str' is not properly Base64 encoded
+            return true;
+        } catch (error) {
+            console.error("Base64 validation error: ", error);
+            console.error("Invalid Base64 string: ", str);
+            return false;
+        }
+    }
+
+    async function decryptMessage(encryptedMessage) {
+        console.log("Decrypting message: ", encryptedMessage);
+        if (!isBase64(encryptedMessage)) {
+            console.error('Decryption failed: Invalid Base64 encoding');
+            throw new Error('Invalid encrypted message data');
+        }
+        try {
+            const privateKeyBase64 = await loadPrivateKey(username);
+            if (!isBase64(privateKeyBase64)) {
+                console.error('Decryption failed: Invalid private key data');
+                throw new Error('Invalid private key data');
+            }
+            console.log("Private key loaded:", privateKeyBase64);
+            const privateKeyBuffer = new Uint8Array(atob(privateKeyBase64).split('').map(char => char.charCodeAt(0)));
+            const privateKey = await window.crypto.subtle.importKey(
+                "pkcs8",
+                privateKeyBuffer,
+                {name: "RSA-OAEP", hash: {name: "SHA-256"}},
+                true,
+                ["decrypt"]
+            );
+
+            const decodedMessage = window.atob(encryptedMessage);
+            console.log("Decoded Base64 message:", decodedMessage);
+            const encryptedBuffer = new Uint8Array(decodedMessage.split('').map(char => char.charCodeAt(0)));
+
+            const decrypted = await window.crypto.subtle.decrypt(
+                {name: "RSA-OAEP"},
+                privateKey,
+                encryptedBuffer
+            );
+            const decoder = new TextDecoder();
+            const decodedText = decoder.decode(decrypted);
+            console.log("Decrypted text:", decodedText);
+            return decodedText;
+        } catch (error) {
+            console.error("Decryption process error:", error);
+            throw new Error('Decryption failed');
+        }
+    }
+
+
+    // Modify the existing incoming message handler to decrypt messages
+    socket.on("incoming", async (msg, color="black") => {
+        if (color === "black") { // Assuming encrypted messages are in 'black'
+            const decryptedMessage = await decryptMessage(msg);
+            add_message(decryptedMessage || "Decryption error", color);
+        } else {
+            add_message(msg, color); // Non-encrypted messages
+        }
     })
+
     
     async function fetchPublicKey(username) {
         const url = `/get-public-key/${username}`;
         try {
+            console.log("Fetching public key for username: ", username);
             const response = await fetch(url);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             const data = await response.json();
+            console.log("Public key data received: ", data.public_key);
             const publicKey = await window.crypto.subtle.importKey(
                 "spki",
                 new Uint8Array(atob(data.public_key).split('').map(char => char.charCodeAt(0))),
@@ -150,21 +262,11 @@
             );
             return publicKey;
         } catch (error) {
-            console.error("Error fetching public key:", error);
+            console.error("Error fetching public key: ", error);
             alert("Failed to fetch public key: " + error.message);
         }
     }
 
-    async function encryptMessage(publicKey, message) {
-        const encoder = new TextEncoder();
-        const encodedMessage = encoder.encode(message);
-        const encrypted = await window.crypto.subtle.encrypt(
-            {name: "RSA-OAEP"},
-            publicKey,
-            encodedMessage
-        );
-        return window.btoa(String.fromCharCode(...new Uint8Array(encrypted)));
-    }
 
     async function send() {
         const receiver = $("#receiver").val();
@@ -178,7 +280,25 @@
         }
 
         const encryptedMessage = await encryptMessage(publicKey, message);
+        console.log("Encrypted message sent: ", encryptedMessage);
         socket.emit("send", "{{ username }}", encryptedMessage, room_id);
+    }
+
+    async function encryptMessage(publicKey, message) {
+        try {
+            const encoder = new TextEncoder();
+            const encodedMessage = encoder.encode(message);
+            const encrypted = await window.crypto.subtle.encrypt(
+                {name: "RSA-OAEP", hash: {name: "SHA-256"}},
+                publicKey,
+                encodedMessage
+            );
+            console.log("Successfully encrypted message.");
+            return window.btoa(String.fromCharCode(...new Uint8Array(encrypted)));
+        } catch (error) {
+            console.error("Encryption error: ", error);
+            return null; 
+        }
     }
 
     // we emit a join room event to the server to join a room
