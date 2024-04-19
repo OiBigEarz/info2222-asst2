@@ -63,7 +63,11 @@
         <h2>Friends</h2>
         <ul>
             {% for friend in friends %}
-            <li>{{ friend }}</li>
+            <li>
+                {{ friend }}
+                <!-- Chat button next to friend name -->
+                <button onclick="startChatWith('{{ friend }}')">Chat</button>
+            </li>
             {% endfor %}
         </ul>
     </section>
@@ -326,6 +330,14 @@
         }
     }
 
+    function startChatWith(friendUsername) {
+        // Set the receiver input to the friend's username
+        $("#receiver").val(friendUsername);
+
+        // Trigger join room directly with the friend's username
+        join_room(friendUsername);
+    }
+    
     // we emit a join room event to the server to join a room
     function join_room() {
        
@@ -360,7 +372,9 @@
     function isFriend(receiver) {
         var isFriend = false;
         $('li').each(function() {
-            if ($(this).text().trim() === receiver) {
+            // Update to check against the text, ignoring the button
+            var listItemText = $(this).clone().children().remove().end().text().trim();
+            if (listItemText === receiver) {
                 isFriend = true;
             }
         });
