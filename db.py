@@ -84,3 +84,14 @@ def list_friend_requests(username: str):
         ).all()
         return received_requests, sent_requests
 
+def insert_message(sender_username, receiver_username, message, iv):
+    with Session(engine) as session:
+        new_message = Message(sender=sender_username, receiver=receiver_username, message=message, iv=iv)
+        session.add(new_message)
+        session.commit()
+
+def get_messages_for_user(username):
+    with Session(engine) as session:
+        # Retrieve all messages where the user is the sender or receiver
+        messages = session.query(Message).filter((Message.sender == username) | (Message.receiver == username)).all()
+        return messages

@@ -145,3 +145,7 @@ def get_public_key(username):
     print("Public key found:", user.public_key)
     return jsonify({"public_key": user.public_key}), 200
 
+@app.route("/get-messages/<username>/<receiver>", methods=["GET"])
+def get_messages(username, receiver):
+    messages = db.get_messages_between_users(username, receiver)
+    return jsonify([{"message": message.message, "sender": message.sender, "timestamp": message.timestamp.isoformat()} for message in messages])
