@@ -150,5 +150,5 @@ def get_messages(username, receiver):
     messages = db.get_messages_between_users(username, receiver)
     return jsonify([{"message": message.message, "sender": message.sender, "timestamp": message.timestamp.isoformat()} for message in messages])
 
-#if __name__ == '__main__':
-#    socketio.run(app, host = 'localhost', port = 1204)
+if __name__ == '__main__':
+   socketio.run(app, host = 'localhost', port = 1204)
