@@ -63,7 +63,11 @@
         <h2>Friends</h2>
         <ul>
             {% for friend in friends %}
-            <li>{{ friend }}</li>
+            <li>
+                {{ friend }}
+                <!-- Chat button next to friend name -->
+                <button onclick="startChatWith('{{ friend }}')">Chat</button>
+            </li>
             {% endfor %}
         </ul>
     </section>
@@ -175,6 +179,92 @@
             };
         });
     }
+<<<<<<< HEAD
+=======
+    
+    function isBase64(str) {
+        try {
+            btoa(atob(str)); // This will throw an error if 'str' is not properly Base64 encoded
+            return true;
+        } catch (error) {
+            console.error("Base64 validation error: ", error);
+            console.error("Invalid Base64 string: ", str);
+            return false;
+        }
+    }
+
+    async function decryptMessage(encryptedMessage) {
+        console.log("Decrypting message: ", encryptedMessage);
+        if (!isBase64(encryptedMessage)) {
+            console.error('Decryption failed: Invalid Base64 encoding');
+            throw new Error('Invalid encrypted message data');
+        }
+        try {
+            const privateKeyBase64 = await loadPrivateKey(username);
+            if (!isBase64(privateKeyBase64)) {
+                console.error('Decryption failed: Invalid private key data');
+                throw new Error('Invalid private key data');
+            }
+            console.log("Private key loaded:", privateKeyBase64);
+            const privateKeyBuffer = new Uint8Array(atob(privateKeyBase64).split('').map(char => char.charCodeAt(0)));
+            const privateKey = await window.crypto.subtle.importKey(
+                "pkcs8",
+                privateKeyBuffer,
+                {name: "RSA-OAEP", hash: {name: "SHA-256"}},
+                true,
+                ["decrypt"]
+            );
+
+            const decodedMessage = window.atob(encryptedMessage);
+            console.log("Decoded Base64 message:", decodedMessage);
+            const encryptedBuffer = new Uint8Array(decodedMessage.split('').map(char => char.charCodeAt(0)));
+
+            const decrypted = await window.crypto.subtle.decrypt(
+                {name: "RSA-OAEP"},
+                privateKey,
+                encryptedBuffer
+            );
+            const decoder = new TextDecoder();
+            const decodedText = decoder.decode(decrypted);
+            console.log("Decrypted text:", decodedText);
+            return decodedText;
+        } catch (error) {
+            console.error("Decryption process error:", error);
+            throw new Error('Decryption failed');
+        }
+    }
+
+
+    // Modify the existing incoming message handler to decrypt messages
+    socket.on("incoming", async (data, color = "black") => {
+        let messageToDisplay = "";
+        
+        if (typeof data === 'string') {
+            messageToDisplay = data;  // Handle system messages or notifications directly
+        } else if (typeof data === 'object' && data.message && data.username) {
+            if (data.username !== username) {  // Check if the message is from another user
+                if (color === "black") {  // Assume "black" color means it needs decryption
+                    const decryptedMessage = await decryptMessage(data.message);
+                    messageToDisplay = `${data.username}: ${decryptedMessage || "Decryption error"}`;
+                } else {
+                    messageToDisplay = `${data.username}: ${data.message}`;
+                }
+            } else {
+                // If the message is from the user themselves, use the already displayed message
+                return;  // No need to add the message again
+            }
+        } else {
+            console.error("Received data in an unexpected format:", data);
+            messageToDisplay = "Error: Received data in an unexpected format.";
+        }
+
+        add_message(messageToDisplay, color);
+    });
+
+
+
+
+>>>>>>> main
     
     function isBase64(str) {
         try {
@@ -323,6 +413,7 @@
         }
 
         const encryptedMessage = await encryptMessage(publicKey, message);
+<<<<<<< HEAD
 
         var sigHmac = await generateHmac(encryptedMessage)
 
@@ -384,12 +475,51 @@
             console.error("Encryption error: ", error);
             return null; 
         }
+=======
+        if (encryptedMessage) {
+            console.log("Encrypted message sent: ", encryptedMessage);
+            add_message(`${username}: ${message}`, "grey"); // Display the original message directly
+            socket.emit("send", username, encryptedMessage, room_id);
+        } else {
+            console.error("Failed to encrypt message");
+        }
+>>>>>>> main
     }
 
+
+    async function encryptMessage(publicKey, message) {
+        try {
+            const encoder = new TextEncoder();
+            const encodedMessage = encoder.encode(message);
+            const encrypted = await window.crypto.subtle.encrypt(
+                {name: "RSA-OAEP", hash: {name: "SHA-256"}},
+                publicKey,
+                encodedMessage
+            );
+            console.log("Successfully encrypted message.");
+            return window.btoa(String.fromCharCode(...new Uint8Array(encrypted)));
+        } catch (error) {
+            console.error("Encryption error: ", error);
+            return null; 
+        }
+    }
+
+    function startChatWith(friendUsername) {
+        // Set the receiver input to the friend's username
+        $("#receiver").val(friendUsername);
+
+        // Trigger join room directly with the friend's username
+        join_room(friendUsername);
+    }
+    
     // we emit a join room event to the server to join a room
     function join_room() {
        
-        let receiver = $("#receiver").val();
+        let receiver = $("#receiver").val().trim();
+        if (!isFriend(receiver)) {
+            alert("You can only chat with friends.");
+            return;
+        }
 
         // pass in the receiver of our message to the server
         // as well as the current user's username
@@ -410,6 +540,19 @@
             $("#input_box").show();
         });
      
+    }
+
+    // Helper function to check if a username is in the friends list
+    function isFriend(receiver) {
+        var isFriend = false;
+        $('li').each(function() {
+            // Update to check against the text, ignoring the button
+            var listItemText = $(this).clone().children().remove().end().text().trim();
+            if (listItemText === receiver) {
+                isFriend = true;
+            }
+        });
+        return isFriend;
     }
 
     // function when the user clicks on "Leave Room"

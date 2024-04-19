@@ -83,6 +83,15 @@ def list_friend_requests(username: str):
         ).all()
         return received_requests, sent_requests
 
+def are_friends(user1, user2):
+    with Session(engine) as session:
+        exists = session.query(Friendship).filter(
+            ((Friendship.user_1 == user1) & (Friendship.user_2 == user2)) |
+            ((Friendship.user_1 == user2) & (Friendship.user_2 == user1))
+        ).first()
+        return exists is not None
+
+        
 def insert_message(sender_username, receiver_username, message, iv):
     with Session(engine) as session:
         new_message = Message(sender=sender_username, receiver=receiver_username, message=message, iv=iv)
