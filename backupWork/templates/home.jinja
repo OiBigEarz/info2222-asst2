@@ -1,0 +1,501 @@
+<!-- 
+    Here you'll find the main exhibit: the chat application code. Feel free to look around!
+-->
+{% extends 'base.jinja' %}
+
+
+{% block content %} 
+   <style>
+    nav {
+        border-bottom: 1px solid black;
+        overflow: auto
+    }
+
+    #message_box {
+        border: 1px solid black; 
+        height: 400px; 
+        width: 800px; 
+        overflow: auto;
+        padding: 2px;
+    }
+
+    .text  {
+        margin-top: 2px;
+        margin-bottom: 2px;
+    }
+
+</style>
+
+<!--Navbar, you'll see the username here-->
+<nav style="border-bottom: 1px solid black;">
+    <ol style="float: right">
+        <li style="display:inline-block">Username:  {{ username }} </li>
+    </ol>
+</nav>
+
+<h1>Messaging App </h1>
+
+<main>
+    <!-- The messages are displayed here -->
+    <section id="message_box"></section>
+
+    <!-- These part ideally should be a form element, 
+    but I wrote this code a year ago and I don't want to break anything...-->
+    <section id="chat_box">
+        <p class="text">Chat with: </p>
+        <input id="receiver" placeholder="username">
+        <!-- MDN says its bad practice to use the onclick attribute,
+        but we're using it anyways coz its easy :)-->
+        <button onclick="join_room()">Chat</button>
+    </section>
+
+    <!-- The (message) input box is set to display: none initially, 
+    this means the input box is "invisible" initially-->
+    <section id="input_box" style="display: none" >
+        <p class="text">Message: </p>
+        <input id="message" placeholder="message">
+        <button onclick="send()">Send</button>
+        <button onclick="leave()">Leave Room</button>
+    </section>
+
+    <!-- Friends List Section -->
+    <section>
+        <h2>Friends</h2>
+        <ul>
+            {% for friend in friends %}
+            <li>{{ friend }}</li>
+            {% endfor %}
+        </ul>
+    </section>
+
+    <!-- Friend Requests Section -->
+    <section>
+        <h2>Friend Requests</h2>
+        <h3>Received</h3>
+        <ul>
+            {% for request in received_requests %}
+            <li>{{ request.sender }} - <button onclick="acceptFriendRequest({{ request.id }})">Accept</button> <button onclick="rejectFriendRequest({{ request.id }})">Reject</button></li>
+            {% endfor %}
+        </ul>
+        <h3>Sent</h3>
+        <ul>
+            {% for request in sent_requests %}
+            <li>{{ request.receiver }} - Pending</li>
+            {% endfor %}
+        </ul>
+    </section>
+    
+    <!-- Section to Send Friend Requests -->
+    <section>
+        <h2>Send Friend Request</h2>
+        <input id="friend_username" placeholder="Enter username">
+        <button onclick="sendFriendRequest()">Send Friend Request</button>
+    </section>
+
+
+
+</main>
+
+<script src="/static/js/libs/socket.io.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/crypto-js.min.js"></script>
+
+<script>
+    let room_id = 0;
+
+    // This function initializes the database and upgrades it if necessary
+    function initDatabase() {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open("chatAppDB", 1);  // Ensure the database name and version are consistent
+
+            request.onupgradeneeded = function(event) {
+                const db = event.target.result;
+                if (!db.objectStoreNames.contains("keys")) {
+                    db.createObjectStore("keys", { keyPath: "username" });
+                    console.log("Database upgraded and 'keys' object store created.");
+                }
+            };
+
+            request.onsuccess = function() {
+                console.log("Database initialized successfully.");
+                resolve(request.result);
+            };
+
+            request.onerror = function(event) {
+                console.error("Database error: " + event.target.errorCode);
+                reject(event.target.error);
+            };
+        });
+    }
+
+
+    $(document).ready(() => {
+        // room_id is undefined if the user hasn't joined a room
+        // we early return in this case
+        if (Cookies.get("room_id") == undefined) {
+            return;
+        }
+
+        // the user has already joined an existing room
+        // we'll display the message box, instead of the "Chat with: " box
+        $("#chat_box").hide();
+        $("#input_box").show();
+        room_id = parseInt(Cookies.get("room_id"));
+    })
+    
+    // Here's the Socket IO part of the code
+    // things get a bit complicated here so brace yourselves :P
+    let username = "{{ username }}";
+
+    Cookies.set('username', username);
+
+    // initializes the socket
+    const socket = io();
+
+    // Function to load private key from IndexedDB
+    async function loadPrivateKey(username) {
+        const db = await initDatabase();
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction(["keys"], "readonly");
+            const store = transaction.objectStore("keys");
+            const request = store.get(username);
+
+            request.onsuccess = function() {
+                if (request.result) {
+                    console.log("Private key loaded: ", request.result.privateKey);
+                    resolve(request.result.privateKey);
+                } else {
+                    console.error("No key found for username: ", username);
+                    reject("No key found");
+                }
+            };
+
+            request.onerror = function(event) {
+                console.error("Error retrieving key: ", event.target.error);
+                reject("Error retrieving key");
+            };
+        });
+    }
+    
+    function isBase64(str) {
+        try {
+            btoa(atob(str)); // This will throw an error if 'str' is not properly Base64 encoded
+            return true;
+        } catch (error) {
+            console.error("Base64 validation error: ", error);
+            console.error("Invalid Base64 string: ", str);
+            return false;
+        }
+    }
+
+    async function decryptMessage(encryptedMessage) {
+        console.log("Decrypting message: ", encryptedMessage);
+        if (!isBase64(encryptedMessage)) {
+            console.error('Decryption failed: Invalid Base64 encoding');
+            throw new Error('Invalid encrypted message data');
+        }
+        try {
+            const privateKeyBase64 = await loadPrivateKey(username);
+            if (!isBase64(privateKeyBase64)) {
+                console.error('Decryption failed: Invalid private key data');
+                throw new Error('Invalid private key data');
+            }
+            console.log("Private key loaded:", privateKeyBase64);
+            const privateKeyBuffer = new Uint8Array(atob(privateKeyBase64).split('').map(char => char.charCodeAt(0)));
+            const privateKey = await window.crypto.subtle.importKey(
+                "pkcs8",
+                privateKeyBuffer,
+                {name: "RSA-OAEP", hash: {name: "SHA-256"}},
+                true,
+                ["decrypt"]
+            );
+
+            const decodedMessage = window.atob(encryptedMessage);
+            console.log("Decoded Base64 message:", decodedMessage);
+            const encryptedBuffer = new Uint8Array(decodedMessage.split('').map(char => char.charCodeAt(0)));
+
+            const decrypted = await window.crypto.subtle.decrypt(
+                {name: "RSA-OAEP"},
+                privateKey,
+                encryptedBuffer
+            );
+            const decoder = new TextDecoder();
+            const decodedText = decoder.decode(decrypted);
+            console.log("Decrypted text:", decodedText);
+            return decodedText;
+        } catch (error) {
+            console.error("Decryption process error:", error);
+            throw new Error('Decryption failed');
+        }
+    }
+
+    async function HmacVerify(message, signature) {
+        const uArray = str => new Uint8Array([...unescape(encodeURIComponent(str))].map(c => c.charCodeAt(0)));
+        const m = uArray(message)            
+        const sig = uArray(signature)            
+        let key8arr = new TextEncoder().encode(sessionStorage.getItem("HKey"));
+        const importedHMACKey = await window.crypto.subtle.importKey(
+            "raw",
+            key8arr,
+            {
+                name: "HMAC", 
+                hash: {name: "SHA-256"}
+            },
+            true,
+            ["verify"]
+        );
+
+        let result = await window.crypto.subtle.verify(
+            "HMAC",
+            importedHMACKey,
+            sig,
+            m
+        );
+        return result;
+    };
+
+    
+
+    // Modify the existing incoming message handler to decrypt messages
+    socket.on("incoming", async (data, color = "black") => {
+
+        let messageToDisplay = "";
+
+        if (typeof data === 'string') {
+            messageToDisplay = data;  // Handle system messages or notifications directly
+        } else if (typeof data === 'object' && data.message && data.username) {
+            if (data.username !== username) {  // Check if the message is from another user
+                if (color === "black") {  // Assume "black" color means it needs decryption
+                    const decryptedMessage = await decryptMessage(data.message);
+                    const validateAuth = await HmacVerify(data.message, decryptedMessage);
+                    messageToDisplay = `${data.username}: ${decryptedMessage || "Decryption error"}`;
+                } else {
+                    messageToDisplay = `${data.username}: ${data.message}`;
+                }
+            } else {
+                // If the message is from the user themselves, use the already displayed message
+                return;  // No need to add the message again
+            }
+        } else {
+            console.error("Received data in an unexpected format:", data);
+            messageToDisplay = "Error: Received data in an unexpected format.";
+        }
+
+        add_message(messageToDisplay, color);
+    });
+
+    async function fetchPublicKey(username) {
+        const url = `/get-public-key/${username}`;
+        try {
+            console.log("Fetching public key for username: ", username);
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const data = await response.json();
+            console.log("Public key data received: ", data.public_key);
+            const publicKey = await window.crypto.subtle.importKey(
+                "spki",
+                new Uint8Array(atob(data.public_key).split('').map(char => char.charCodeAt(0))),
+                {
+                    name: "RSA-OAEP",
+                    hash: {name: "SHA-256"}
+                },
+                true,
+                ["encrypt"]
+            );
+            return publicKey;
+        } catch (error) {
+            console.error("Error fetching public key: ", error);
+            alert("Failed to fetch public key: " + error.message);
+        }
+    }
+
+
+    async function send() {
+        const receiver = $("#receiver").val();
+        const message = $("#message").val();
+        $("#message").val("");  // Clear the input after sending the message
+
+        const publicKey = await fetchPublicKey(receiver);
+        if (!publicKey) {
+            alert('Could not fetch public key for encryption');
+            return;
+        }
+
+        const encryptedMessage = await encryptMessage(publicKey, message);
+
+        var sigHmac = await generateHmac(encryptedMessage)
+
+        if (encryptedMessage && sigHmac) {
+            console.log("HMAC Generated: ", sigHmac);
+            console.log("Encrypted message sent: ", encryptedMessage);
+            add_message(`${username}: ${message}`, "grey"); // Display the original message directly
+            socket.emit("send", username, encryptedMessage, sigHmac, room_id);
+        } else {
+            console.error("Failed to encrypt message");
+        }
+    }
+
+    async function generateHmac(message) {
+        try {
+            const uArray = str => new Uint8Array([...unescape(encodeURIComponent(str))].map(c => c.charCodeAt(0)));
+            const m = uArray(message)            
+            let Hkey = await window.crypto.subtle.generateKey(
+                {
+                  name: "HMAC",
+                  hash: { name: "SHA-512" },
+                },
+                true,
+                ["sign", "verify"],
+              );
+              
+            const signature = window.crypto.subtle.sign(
+                "HMAC",
+                Hkey,
+                m 
+            )
+            const exportedHKey = await window.crypto.subtle.exportKey("raw", Hkey);
+            let stringKey = new TextDecoder().decode(exportedHKey);
+            sessionStorage.setItem("HKey", stringKey)
+
+            return signature;
+
+        } catch (error) {
+            console.error("HMAC generation error: ", error);
+            return null; 
+        }
+    }
+
+
+
+
+    async function encryptMessage(publicKey, message) {
+        try {
+            const encoder = new TextEncoder();
+            const encodedMessage = encoder.encode(message);
+            const encrypted = await window.crypto.subtle.encrypt(
+                {name: "RSA-OAEP", hash: {name: "SHA-256"}},
+                publicKey,
+                encodedMessage
+            );
+            console.log("Successfully encrypted message.");
+            return window.btoa(String.fromCharCode(...new Uint8Array(encrypted)));
+        } catch (error) {
+            console.error("Encryption error: ", error);
+            return null; 
+        }
+    }
+
+    // we emit a join room event to the server to join a room
+    function join_room() {
+       
+        let receiver = $("#receiver").val();
+
+        // pass in the receiver of our message to the server
+        // as well as the current user's username
+        socket.emit("join", username, receiver, (res) => {
+            // res is a string with the error message if the error occurs
+            // this is a pretty bad way of doing error handling, but watevs
+            if (typeof res != "number") {
+                alert(res);
+                return;
+            }
+
+            // set the room id variable to the room id returned by the server
+            room_id = res;
+            Cookies.set("room_id", room_id);
+
+            // now we'll show the input box, so the user can input their message
+            $("#chat_box").hide();
+            $("#input_box").show();
+        });
+     
+    }
+
+    // function when the user clicks on "Leave Room"
+    // emits a "leave" event, telling the server that we want to leave the room
+    function leave() {
+        Cookies.remove("room_id");
+        socket.emit("leave", username, room_id);
+        $("#input_box").hide();
+        $("#chat_box").show();
+    }
+
+    // function to add a message to the message box
+    // called when an incoming message has reached a client
+    function add_message(message, color) {
+        let box = $("#message_box");
+        let child = $(`<p style="color:${color}; margin: 0px;"></p>`).text(message);
+        box.append(child);
+    }
+
+    // Function to send a friend request
+    function sendFriendRequest() {
+        const receiver = $("#friend_username").val();  // Assuming you have an input field with id 'friend_username'
+        $.ajax({
+            url: "/add-friend",
+            type: "POST",
+            contentType: "application/json",
+            data: JSON.stringify({ sender: "{{ username }}", receiver: receiver }),
+            success: function(response) {
+                alert("Friend request sent!");
+            },
+            error: function(xhr, status, error) {
+                alert("Error sending friend request: " + xhr.responseText);
+            }
+        });
+    }
+
+    // Function to accept a friend request
+    function acceptFriendRequest(requestId) {
+        $.ajax({
+            url: "/accept-friend-request",
+            type: "POST",
+            contentType: "application/json",
+            data: JSON.stringify({ request_id: requestId }),
+            success: function(response) {
+                alert("Friend request accepted!");
+                location.reload();  // Reload the page to update the friends list
+            },
+            error: function(xhr, status, error) {
+                alert("Error accepting friend request: " + xhr.responseText);
+            }
+        });
+    }
+
+    // Function to reject a friend request
+    function rejectFriendRequest(requestId) {
+        $.ajax({
+            url: "/reject-friend-request",
+            type: "POST",
+            contentType: "application/json",
+            data: JSON.stringify({ request_id: requestId }),
+            success: function(response) {
+                alert("Friend request rejected!");
+                location.reload();  // Reload the page to update the list of friend requests
+            },
+            error: function(xhr, status, error) {
+                alert("Error rejecting friend request: " + xhr.responseText);
+            }
+        });
+    }
+
+    // when the user presses the "Enter" key inside of the "message box", 
+    // the message is sent to the server
+    $("#message").on("keyup", (e) => {
+        if (e.key == "Enter") {
+            send();
+        }
+    })
+
+    // when the user presses the enter key inside of the "receiver box"
+    // the user joins a (socket) room
+     $("#receiver").on("keyup", (e) => {
+        if (e.key == "Enter") {
+            join_room();
+        }
+    })
+
+    
+</script>
+{% endblock %}
