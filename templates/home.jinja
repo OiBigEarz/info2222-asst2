@@ -329,7 +329,11 @@
     // we emit a join room event to the server to join a room
     function join_room() {
        
-        let receiver = $("#receiver").val();
+        let receiver = $("#receiver").val().trim();
+        if (!isFriend(receiver)) {
+            alert("You can only chat with friends.");
+            return;
+        }
 
         // pass in the receiver of our message to the server
         // as well as the current user's username
@@ -350,6 +354,17 @@
             $("#input_box").show();
         });
      
+    }
+
+    // Helper function to check if a username is in the friends list
+    function isFriend(receiver) {
+        var isFriend = false;
+        $('li').each(function() {
+            if ($(this).text().trim() === receiver) {
+                isFriend = true;
+            }
+        });
+        return isFriend;
     }
 
     // function when the user clicks on "Leave Room"
