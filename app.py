@@ -95,6 +95,7 @@ def home():
     return render_template("home.jinja", username=username, friends=friends,
                            received_requests=received_requests, sent_requests=sent_requests)
 
+
 # Route to send a friend request
 @app.route("/add-friend", methods=["POST"])
 def add_friend():
@@ -143,6 +144,11 @@ def get_public_key(username):
         return jsonify({"error": "User not found"}), 404
     print("Public key found:", user.public_key)
     return jsonify({"public_key": user.public_key}), 200
+
+@app.route("/get-messages/<username>/<receiver>", methods=["GET"])
+def get_messages(username, receiver):
+    messages = db.get_messages_between_users(username, receiver)
+    return jsonify([{"message": message.message, "sender": message.sender, "timestamp": message.timestamp.isoformat()} for message in messages])
 
 if __name__ == '__main__':
     socketio.run(app, host = 'localhost', port = 1204)

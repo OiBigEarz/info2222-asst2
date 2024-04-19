@@ -10,9 +10,10 @@ Prisma docs also looks so much better in comparison
 or use SQLite, if you're not into fancy ORMs (but be mindful of Injection attacks :) )
 '''
 
-from sqlalchemy import Column, Integer, String, ForeignKey, Enum, Text
+from sqlalchemy import Column, Integer, String, ForeignKey, Enum, Text, DateTime
 from sqlalchemy.orm import declarative_base, Mapped, mapped_column, relationship
 from typing import Dict
+from datetime import datetime
 
 # data models
 Base = declarative_base()
@@ -30,6 +31,18 @@ class User(Base):
     password: Mapped[str] = mapped_column(String)
     public_key: Mapped[str] = mapped_column(Text)
     
+class Message(Base):
+    __tablename__ = 'messages'
+    
+    id = Column(Integer, primary_key=True)
+    sender = Column(String, ForeignKey('user.username'))
+    receiver = Column(String, ForeignKey('user.username'))
+    message = Column(Text)  # This will store the encrypted message text
+    timestamp = Column(DateTime, default=datetime.utcnow)  # Automatically sets the timestamp
+
+    # Define relationships to the User model for easier access to user objects
+    sender_user = relationship("User", foreign_keys=[sender])
+    receiver_user = relationship("User", foreign_keys=[receiver])
 
 # stateful counter used to generate the room id
 class Counter():
