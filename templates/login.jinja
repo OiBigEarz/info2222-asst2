@@ -39,25 +39,25 @@
             // login_user()
             // so... "{{ url_for('login_user')}}" 
             // gives us -> "http://blabla/login/user"
-            let loginURL = "{{ url_for('login_user') }}";
+
 
             // axios post is a fancy way of posting a request to the server,
             // we pass in the username and password here
-            let res = await axios.post(loginURL, {
-                username: username,
-                password: hashedPassword
-            });
+            try {
+                let response = await axios.post("{{ url_for('login_user') }}", {
+                    username: username,
+                    password: hashedPassword
+                });
 
-            // if the server sends in an error message, alert() the error message
-            if (!isValidURL(res.data)) {
-                alert(res.data);
-                return;
+                if (response.data.login) {
+                    window.location.href = '/home';  // Redirect on successful login
+                } else {
+                    alert("Login failed: " + response.data.msg);  // Display error message
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                alert('Login error: ' + (error.response ? error.response.data.msg : 'Server error'));
             }
-
-            // redirects to the URL (ie. res.data),
-            // we use _self here since we all hate that moment
-            // when the browser opens a new tab
-            window.open(res.data, "_self");
         }
     </script>
 {% endblock %}

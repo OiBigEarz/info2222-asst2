@@ -4,11 +4,12 @@ this is where you'll find all of the get/post request handlers
 the socket event handlers are inside of socket_routes.py
 '''
 "comment used for checking git commit"
-from flask import Flask, render_template, request, abort, url_for
+from flask import Flask, render_template, request, abort, url_for, jsonify, redirect
 from flask_socketio import SocketIO
 import db
 import secrets
 from werkzeug.security import check_password_hash
+from flask_jwt_extended import JWTManager, create_access_token, set_access_cookies, unset_jwt_cookies, jwt_required, get_jwt_identity , exceptions
 
 
 # import logging
@@ -18,12 +19,21 @@ from werkzeug.security import check_password_hash
 # log.setLevel(logging.ERROR)
 
 app = Flask(__name__)
+CORS(app) 
 
 
 
 # secret key used to sign the session cookie
 app.config['SECRET_KEY'] = secrets.token_hex()
 socketio = SocketIO(app)
+
+# Configure JWT
+app.config['JWT_SECRET_KEY'] = 'your_jwt_secret_key'  # Change to your secret key
+app.config['JWT_TOKEN_LOCATION'] = ['cookies']
+app.config['JWT_COOKIE_SECURE'] = True  # Set to True in production with HTTPS
+app.config['JWT_COOKIE_CSRF_PROTECT'] = True  # Enable CSRF protection
+
+jwt = JWTManager(app) 
 
 # don't remove this!!
 import socket_routes
@@ -32,6 +42,10 @@ import socket_routes
 @app.route("/")
 def index():
     return render_template("index.jinja")
+
+@app.errorhandler(exceptions.NoAuthorizationError)
+def handle_auth_error(e):
+    return redirect(url_for('login'))
 
 # login page
 @app.route("/login")
@@ -55,8 +69,11 @@ def login_user():
     if not check_password_hash(user.password, password):
         return "Error: Password does not match!"
 
-    return url_for('home', username=username)
-
+    # Create a token
+    access_token = create_access_token(identity=username)
+    response = jsonify({'login': True})
+    set_access_cookies(response, access_token)  # Set the JWT in a cookie
+    return response
 
 # handles a get request to the signup page
 @app.route("/signup")
@@ -70,12 +87,16 @@ def signup_user():
         abort(404)
     username = request.json.get("username")
     password = request.json.get("password")
-    public_key = request.json.get("public_key")  # Retrieve the public key from the request
+    public_key = request.json.get("public_key")
 
-    if db.get_user(username) is None:
-        db.insert_user(username, password, public_key)  # Pass the public key to your insert function
-        return url_for('home', username=username)
-    return "Error: User already exists!"
+    if db.get_user(username) is not None:
+        return jsonify({"msg": "User already exists!"}), 409
+
+    db.insert_user(username, password, public_key)
+    access_token = create_access_token(identity=username)
+    response = jsonify({'signup': True})
+    set_access_cookies(response, access_token)
+    return response
 
 # handler when a "404" error happens
 @app.errorhandler(404)
@@ -84,17 +105,15 @@ def page_not_found(_):
 
 # home page, where the messaging app is
 @app.route("/home")
+@jwt_required()
 def home():
-    username = request.args.get("username")
-    if username is None:
-        abort(404)
+    current_user = get_jwt_identity()  # Get the identity of the current user from JWT
+    friends = db.list_friends(current_user)
+    received_requests, sent_requests = db.list_friend_requests(current_user)
 
-    # Fetch friends and friend requests
-    friends = db.list_friends(username)
-    received_requests, sent_requests = db.list_friend_requests(username)
-
-    return render_template("home.jinja", username=username, friends=friends,
+    return render_template("home.jinja", username=current_user, friends=friends,
                            received_requests=received_requests, sent_requests=sent_requests)
+
 
 
 # Route to send a friend request
@@ -135,6 +154,21 @@ def reject_friend_request():
     request_id = request.json.get("request_id")
     db.reject_friend_request(request_id)
     return "Friend request rejected", 200
+
+app.route("/get-public-key/<username>", methods=["GET"])
+def get_public_key(username):
+    print("Fetching public key for:", username)
+    user = db.get_user(username)
+    if user is None:
+        print("User not found:", username)
+        return jsonify({"error": "User not found"}), 404
+    print("Public key found:", user.public_key)
+    return jsonify({"public_key": user.public_key}), 200
+
+@app.route("/get-messages/<username>/<receiver>", methods=["GET"])
+def get_messages(username, receiver):
+    messages = db.get_messages_between_users(username, receiver)
+    return jsonify([{"message": message.message, "sender": message.sender, "timestamp": message.timestamp.isoformat()} for message in messages])
 
 if __name__ == '__main__':
     socketio.run(app, host = 'localhost', port = 1204,
