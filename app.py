@@ -175,12 +175,6 @@ def get_messages(username, receiver):
     messages = db.get_messages_between_users(username, receiver)
     return jsonify([{"message": message.message, "sender": message.sender, "timestamp": message.timestamp.isoformat()} for message in messages])
 
-<<<<<<< HEAD
-if __name__ == '__main__':
-    socketio.run(app, host = 'localhost', port = 1204,
-                 keyfile = 'example.com+5-key.pem',
-                 certfile = 'example.com+5.pem')
-=======
 @app.route('/get_salt/<username>', methods=['GET'])
 def get_salt(username):
     user = db.get_user(username)
@@ -189,7 +183,9 @@ def get_salt(username):
     else:
         return jsonify({"error": "User not found or salt unavailable"}), 404
 
+if __name__ == '__main__':
+    socketio.run(app, host = 'localhost', port = 1204,
+    keyfile = 'example.com+5-key.pem',
+    certfile = 'example.com+5.pem')
 
-#if __name__ == '__main__':
-#    socketio.run(app, host = 'localhost', port = 1204)
->>>>>>> main
+
