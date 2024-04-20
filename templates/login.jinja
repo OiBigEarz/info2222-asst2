@@ -52,12 +52,15 @@
                 if (response.data.login) {
                     window.location.href = '/home';  // Redirect on successful login
                 } else {
-                    alert("Login failed: " + response.data.msg);  // Display error message
+                    // Display specific error message from the server
+                    alert("Login failed: " + response.data.msg);
                 }
             } catch (error) {
                 console.error('Login error:', error);
-                alert('Login error: ' + (error.response ? error.response.data.msg : 'Server error'));
+                // Handle the case where the server response might not have the expected format
+                alert('Login error: ' + (error.response && error.response.data ? error.response.data.msg : 'Server error'));
             }
         }
+
     </script>
 {% endblock %}

@@ -54,24 +54,25 @@ def login():
 @app.route("/login/user", methods=["POST"])
 def login_user():
     if not request.is_json:
-        abort(404)
+        return jsonify({"login": False, "msg": "Invalid request format"}), 400
 
     username = request.json.get("username")
     password = request.json.get("password")
 
     user = db.get_user(username)
     if user is None:
-        return "Error: User does not exist!"
+        return jsonify({"login": False, "msg": "User does not exist!"}), 404
 
     # Check if hashed password matches
     if not check_password_hash(user.password, password):
-        return "Error: Password does not match!"
+        return jsonify({"login": False, "msg": "Password does not match!"}), 401
 
     # Create a token
     access_token = create_access_token(identity=username)
-    response = jsonify({'login': True})
+    response = jsonify({'login': True, "msg": "Login successful"})
     set_access_cookies(response, access_token)  # Set the JWT in a cookie
     return response
+
 
 # handles a get request to the signup page
 @app.route("/signup")
