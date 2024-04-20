@@ -250,7 +250,7 @@
             ["verify"]
         );
 
-        let result = await window.crypto.subtle.verify(
+        let result: Promise<string> = await window.crypto.subtle.verify(
             "HMAC",
             importedHMACKey,
             sig,
@@ -271,6 +271,7 @@
                 if (color === "black") {  // Assume "black" color means it needs decryption
                     const decryptedMessage = await decryptMessage(data.message);
                     const validateAuth = await HmacVerify(data.message, decryptedMessage);
+                    console.log(validateAuth)
                     messageToDisplay = `${data.username}: ${decryptedMessage || "Decryption error"}`;
                 } else {
                     messageToDisplay = `${data.username}: ${data.message}`;
