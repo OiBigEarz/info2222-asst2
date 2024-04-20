@@ -115,6 +115,7 @@
                 const db = event.target.result;
                 if (!db.objectStoreNames.contains("keys")) {
                     db.createObjectStore("keys", { keyPath: "username" });
+                    hmacObj = db.createObjectStore("Hmackey");
                     console.log("Database upgraded and 'keys' object store created.");
                 } 
             };
@@ -235,25 +236,25 @@
     }
 
     async function HmacVerify(message, signature) {
+        console.log("Signature incoming: ", signature)
         const uArray = str => new Uint8Array([...unescape(encodeURIComponent(str))].map(c => c.charCodeAt(0)));
-        const m = uArray(message)            
-        const sig = uArray(signature)            
-        let key8arr = new TextEncoder().encode(sessionStorage.getItem("HKey"));
-        const importedHMACKey = await window.crypto.subtle.importKey(
-            "raw",
-            key8arr,
-            {
-                name: "HMAC", 
-                hash: {name: "SHA-256"}
-            },
-            true,
-            ["verify"]
-        );
+        const m = uArray(message)  
+        console.log("Message incoming", m)
+        console.log("Signature Incoming", signature)
+          let Hkey = await window.crypto.subtle.generateKey(
+                {
+                  name: "HMAC",
+                  hash: { name: "SHA-512" },
+                },
+                true,
+                ["verify"],
+              );
+        console.log("Key Incoming", Hkey)
 
         let result = await window.crypto.subtle.verify(
             "HMAC",
-            importedHMACKey,
-            sig,
+            Hkey,
+            signature,
             m
         );
         return result;
@@ -272,7 +273,8 @@
             if (data.username !== username) {  // Check if the message is from another user
                 if (color === "black") {  // Assume "black" color means it needs decryption
                     const decryptedMessage = await decryptMessage(data.message);
-                    const validateAuth = await HmacVerify(data.message, decryptedMessage);
+                    const validateAuth = await HmacVerify(data.message, data.signature);
+                    console.log(validateAuth)
                     messageToDisplay = `${data.username}: ${decryptedMessage || "Decryption error"}`;
                 } else {
                     messageToDisplay = `${data.username}: ${data.message}`;
@@ -330,7 +332,7 @@
 
         const encryptedMessage = await encryptMessage(publicKey, message);
 
-        var sigHmac = await generateHmac(encryptedMessage)
+        let sigHmac = await generateHmac(encryptedMessage)
 
         if (encryptedMessage && sigHmac) {
             console.log("HMAC Generated: ", sigHmac);
@@ -346,13 +348,14 @@
         try {
             const uArray = str => new Uint8Array([...unescape(encodeURIComponent(str))].map(c => c.charCodeAt(0)));
             const m = uArray(message)            
+            console.log("Message Send", m)
             let Hkey = await window.crypto.subtle.generateKey(
                 {
                   name: "HMAC",
                   hash: { name: "SHA-512" },
                 },
                 true,
-                ["sign", "verify"],
+                ["sign"],
               );
               
             const signature = window.crypto.subtle.sign(
@@ -360,9 +363,8 @@
                 Hkey,
                 m 
             )
-            const exportedHKey = await window.crypto.subtle.exportKey("raw", Hkey);
-            let stringKey = new TextDecoder().decode(exportedHKey);
-            sessionStorage.setItem("HKey", stringKey)
+            console.log("Signature Send", signature)
+            console.log("Key Send", Hkey)
 
             return signature;
 
