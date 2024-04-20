@@ -10,7 +10,7 @@ import db
 import secrets
 from werkzeug.security import check_password_hash
 from flask_jwt_extended import JWTManager, create_access_token, set_access_cookies, unset_jwt_cookies, jwt_required, get_jwt_identity , exceptions
-
+from flask_cors import CORS
 
 # import logging
 
