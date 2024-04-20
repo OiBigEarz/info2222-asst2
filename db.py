@@ -7,8 +7,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from models import *
 from werkzeug.security import generate_password_hash
-
-
+from passlib.hash import scrypt
 from pathlib import Path
 
 # creates the database directory
@@ -103,3 +102,6 @@ def get_messages_for_user(username):
         # Retrieve all messages where the user is the sender or receiver
         messages = session.query(Message).filter((Message.sender == username) | (Message.receiver == username)).all()
         return messages
+
+def compare_password_hash(password, password_to_check):
+    return scrypt.verify(password_to_check, password)

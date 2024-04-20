@@ -66,7 +66,7 @@ def login_user():
         return "Error: User does not exist!"
 
     # Check if hashed password matches
-    if not check_password_hash(user.password, password):
+    if user.password != password:
         return "Error: Password does not match!"
 
     # Create a token
@@ -172,5 +172,5 @@ def get_messages(username, receiver):
 
 if __name__ == '__main__':
     socketio.run(app, host = 'localhost', port = 1204,
-    certfile = '/home/oibigearz/Desktop/INFO2222/Assignment/info2222-asst2/mycerts/example.com+5.pem', 
-    keyfile = '/home/oibigearz/Desktop/INFO2222/Assignment/info2222-asst2/mycerts/example.com+5-key.pem')
+    certfile = 'example.com+5.pem', 
+    keyfile = 'example.com+5-key.pem')
