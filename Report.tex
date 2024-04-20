@@ -1,0 +1,605 @@
+\documentclass{article}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{graphicx}
+% Define colors for syntax highlighting
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+
+\lstset{style=mystyle}
+
+\title{Info2222 Security Assignment Report}
+\author{530317166, ScottSID}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section*{Contribution Summary}
+
+\subsection{530317166}
+Student Ian did the following
+\begin{itemize}
+    \item User login
+    \item Friends feature
+    \item Chatroom's asymmetric key generation encryption and decryption. 
+    \item Hash and Salt
+    \item Authentication
+\end{itemize}
+
+\subsection{ScottSID}
+Student Scott did the following
+\begin{itemize}
+    \item Chatroom's Hmac 
+    \item HTTPS
+    \item tba
+\end{itemize}
+
+\section{User Login Security}
+\textit{Contributed by Ian}
+
+\subsection{Preventing XSS Attacks}
+To prevent XSS attacks, we ensure that all user inputs are sanitized before rendering them on any page. Flask’s Jinja templates automatically escape all variable content rendered into HTML, which is crucial for preventing XSS. Below is a code snippet from our login form processing:
+
+\begin{lstlisting}[language=Python]
+@app.route("/login/user", methods=["POST"])
+def login_user():
+    if not request.is_json:
+        abort(404)
+
+    username = request.json.get("username")
+    password = request.json.get("password")
+    
+    user = db.get_user(username)
+    if user is None:
+        return "Error: User does not exist!"
+
+    if not check_password_hash(user.password, password):
+        return "Error: Password does not match!"
+
+    access_token = create_access_token(identity=username)
+    response = jsonify({'login': True})
+    set_access_cookies(response, access_token)
+    return response
+\end{lstlisting}
+
+This function not only checks the validity of the user’s credentials but also prevents XSS by not directly embedding user input in HTML responses.
+
+\subsection{Encryption and Secure Password Handling}
+Passwords are hashed first on the client side before sending and on server side using Werkzeug’s security tools, ensuring that even if database access is compromised, the passwords remain secure. Below is how we handle password hashing on user registration:
+
+\begin{lstlisting}[language=Python]
+def insert_user(username: str, password: str, public_key: str):
+    hashed_password = generate_password_hash(password)
+    with Session(engine) as session:
+        user = User(username=username, password=hashed_password, public_key=public_key)
+        session.add(user)
+        session.commit()
+\end{lstlisting}
+
+\subsection{JWT-Based Session Management}
+We use JSON Web Tokens (JWT) for managing sessions. This method ensures that user sessions are stateless and securely validated on each request. Here is how we generate and validate tokens:
+
+\begin{lstlisting}[language=Python]
+# Create a token
+access_token = create_access_token(identity=username)
+response = jsonify({'login': True})
+set_access_cookies(response, access_token)  # Set the JWT in a cookie
+
+@app.route("/home")
+@jwt_required()
+def home():
+    current_user = get_jwt_identity()
+    # Proceed with handling the request
+\end{lstlisting}
+
+This approach ensures that each request to the server must come from an authenticated session, significantly enhancing the security of our application.
+
+\section{Friends list}
+\textit{Contributed by Ian}
+
+The friends list in the application is dynamically rendered using Flask and Jinja2 templates, ensuring real-time updates and security against web vulnerabilities such as XSS attacks. Below is an explanation of the mechanisms put in place to ensure the safety and integrity of this feature.
+
+\subsection{Dynamic Content Loading}
+
+\begin{lstlisting}[language=Python, caption={Dynamically Loading Friends List}]
+# Flask route that handles fetching friends
+@app.route("/list-friends/<username>")
+def list_friends(username):
+    friends = db.list_friends(username)
+    return render_template("friends_list.jinja", friends=friends, username=username)
+\end{lstlisting}
+
+\subsection{Security Measures}
+\subsubsection{XSS Prevention}
+All dynamic content rendered through Jinja2 templates automatically escapes any HTML tags unless explicitly marked otherwise. This behavior prevents the injection of malicious scripts, thereby safeguarding against XSS attacks.
+
+\begin{lstlisting}[language=HTML, caption={Auto-escaping in Jinja2}]
+<ul>
+    {% for friend in friends %}
+    <li>{{ friend|escape }}</li>
+    {% endfor %}
+</ul>
+\end{lstlisting}
+
+\subsubsection{Secure Session Management}
+User sessions are managed using JSON Web Tokens (JWTs), which are securely stored in HTTPOnly cookies. This method prevents client-side scripts from accessing the token, reducing the risk of XSS and CSRF attacks.
+
+\begin{lstlisting}[language=Python, caption={JWT Session Management}]
+# Set JWT in HTTPOnly cookies
+set_access_cookies(response, access_token)
+\end{lstlisting}
+
+\subsubsection{Friendship Verification}
+The application verifies that friendship exists before allowing any interaction. This server-side check ensures that users can only interact with their actual friends, preventing unauthorized access.
+
+\begin{lstlisting}[language=Python, caption={Friendship Verification}]
+def are_friends(user1, user2):
+    return db.are_friends(user1, user2)
+\end{lstlisting}
+
+\section{Users can add friends by submitting another user's username to the server}
+\textit{Contributed by Ian}
+
+The functionality for users to add friends is facilitated through specific routes in the Flask application. The following Python code snippet shows the server-side handling of sending friend requests:
+
+\begin{lstlisting}[language=Python, caption={Handling Friend Requests}]
+# Route to send a friend request
+@app.route("/add-friend", methods=["POST"])
+def add_friend():
+    if not request.is_json:
+        abort(400, 'Requests must be JSON formatted.')  # Ensures that the request is in JSON format
+
+    sender = request.json.get("sender")
+    receiver = request.json.get("receiver")
+    
+    # Checks if both users exist
+    if db.get_user(sender) is None or db.get_user(receiver) is None:
+        return jsonify({"msg": "One or both users not found"}), 404
+    
+    db.send_friend_request(sender, receiver)
+    return jsonify({"msg": "Friend request sent successfully!"}), 200
+\end{lstlisting}
+
+This route performs several checks:
+- Validates that the request data format is JSON.
+- Ensures that both the sender and receiver are existing users in the database.
+- Adds a friend request to the database through a secure interface.
+
+\subsection*{Security Considerations}
+The application incorporates various security measures to protect against common vulnerabilities:
+
+\begin{itemize}
+    \item \textbf{Input Validation:} All input data from the user is validated to ensure it meets the expected format and type, preventing SQL Injection and other forms of input-based attacks.
+    \item \textbf{User Authentication:} Users must be authenticated to send friend requests, ensuring that actions are performed by legitimate users.
+    \item \textbf{XSS Prevention:} By enforcing JSON formatted data and utilizing server-side rendering of user-generated content with appropriate escaping, the application is safeguarded against Cross-Site Scripting (XSS) attacks.
+\end{itemize}
+
+\section{}{Displaying Friend Requests}
+\textit{Contributed by Ian}
+
+\begin{lstlisting}[language=HTML, caption={Displaying Friend Requests in Jinja2 Template}]
+{% for request in received_requests %}
+<li>{{ request.sender }} - 
+    <button onclick="acceptFriendRequest({{ request.id }})">Accept</button> 
+    <button onclick="rejectFriendRequest({{ request.id }})">Reject</button>
+</li>
+{% endfor %}
+\end{lstlisting}
+
+This segment ensures that each friend request is displayed with options to either accept or reject, directly reflecting changes made by the user in a secure and intuitive interface.
+
+\section{Secure Chat Room Functionality}
+
+\subsection*{Establishing a Secure Chat Room}
+\textit{Contributed by Ian}
+
+Users can initiate a chat by clicking on a friend's name, which triggers a request to join a chat room if they are online. The following is a high-level overview of the process implemented in the Flask application:
+
+\begin{lstlisting}[language=Python, caption={Joining a Chat Room}]
+# Function to start a chat with a friend
+function startChatWith(friendUsername) {
+    $("#receiver").val(friendUsername);  // Sets the friend's username in the receiver input
+    join_room(friendUsername);  // Triggers the join room function
+}
+
+# Function to join a chat room
+function join_room(friendUsername) {
+    let receiver = $("#receiver").val().trim();
+    if (!isFriend(receiver)) {
+        alert("You can only chat with friends.");
+        return;
+    }
+    socket.emit("join", username, receiver, (res) => {
+        if (typeof res != "number") {
+            alert(res);  // Error handling
+            return;
+        }
+        room_id = res;  // Room ID is set here
+        $("#chat_box").hide();
+        $("#input_box").show();
+    });
+}
+\end{lstlisting}
+
+This code ensures that users can only start conversations with friends by validating the friendship before initiating the chat. This validation prevents unauthorized access to chat rooms.
+
+\subsection*{Secure Message Exchange}
+\textit{Contributed by Ian}
+
+Messages are encrypted client-side using private-key before being sent over the network. The server, acting as a middleman, cannot decipher the content of these messages due to the encryption:
+
+\begin{lstlisting}[language=Java, caption={Encrypting and Sending Messages}]
+
+
+# Function to send an encrypted message
+async function send() {
+    const receiver = $("#receiver").val();
+    const message = $("#message").val();
+    $("#message").val("");  // Clear the input after sending
+
+    const publicKey = await fetchPublicKey(receiver);
+    if (!publicKey) {
+        alert('Could not fetch public key for encryption');
+        return;
+    }
+
+    const encryptedMessage = await encryptMessage(publicKey, message);
+    socket.emit("send", username, encryptedMessage, room_id);
+    add_message(`You: ${message}`, "grey");  // Display the message on the sender's side
+}
+\end{lstlisting}
+\begin{lstlisting}[language=Java, caption={Decrypting Messages}]
+
+    async function decryptMessage(encryptedMessage) {
+        console.log("Decrypting message: ", encryptedMessage);
+        if (!isBase64(encryptedMessage)) {
+            console.error('Decryption failed: Invalid Base64 encoding');
+            throw new Error('Invalid encrypted message data');
+        }
+        try {
+            const privateKeyBase64 = await loadPrivateKey(username);
+            if (!isBase64(privateKeyBase64)) {
+                console.error('Decryption failed: Invalid private key data');
+                throw new Error('Invalid private key data');
+            }
+            console.log("Private key loaded:", privateKeyBase64);
+            const privateKeyBuffer = new Uint8Array(atob(privateKeyBase64).split('').map(char => char.charCodeAt(0)));
+            const privateKey = await window.crypto.subtle.importKey(
+                "pkcs8",
+                privateKeyBuffer,
+                {name: "RSA-OAEP", hash: {name: "SHA-256"}},
+                true,
+                ["decrypt"]
+            );
+
+            const decodedMessage = window.atob(encryptedMessage);
+            console.log("Decoded Base64 message:", decodedMessage);
+            const encryptedBuffer = new Uint8Array(decodedMessage.split('').map(char => char.charCodeAt(0)));
+
+            const decrypted = await window.crypto.subtle.decrypt(
+                {name: "RSA-OAEP"},
+                privateKey,
+                encryptedBuffer
+            );
+            const decoder = new TextDecoder();
+            const decodedText = decoder.decode(decrypted);
+            console.log("Decrypted text:", decodedText);
+            return decodedText;
+        } catch (error) {
+            console.error("Decryption process error:", error);
+            throw new Error('Decryption failed');
+        }
+    }
+\end{lstlisting}
+The encrypted messages are only decipherable by the recipient, who possesses the corresponding private key. This mechanism ensures that sensitive information remains confidential even if intercepted during transmission.
+
+\subsection*{Message Display and Authentication}
+\textit{Contributed by Ian}
+
+The client-side application also handles the display of incoming messages, ensuring that messages are correctly attributed to their senders:
+
+\begin{lstlisting}[language=Java, caption={Receiving and Decrypting Messages}]
+# Modify the existing incoming message handler to decrypt messages
+socket.on("incoming", async (data, color = "black") => {
+    if (data.username !== username) {  // Check if the message is from another user
+        const decryptedMessage = await decryptMessage(data.message);
+        add_message(`${data.username}: ${decryptedMessage}`, color);
+    }
+});
+\end{lstlisting}
+
+\subsection*{HMAC Implementation}
+\textit{Contributed by Scott}
+
+The system uses HMAC authentication to ensure that messages in transit are not modified for malicious purposes, providing data integrity and authentication from the system. With aid from the \textit{SubtleCrypto API}, we can setup the mechanisms that employ HMAC.
+
+\subsubsection*{Generating a Signature}
+Whenever the user sends a message, a shared secret is generated by the server. This shared secret is a hash encoded in SHA-512 with the ability to sign and verify signatures that will be sent along with the ciphertext.
+
+Each time a message is sent, the user and the server agree upon a shared secret that is generated every time a new message is sent. The secret key is encoded with SHA-512 hash, with the ability to only sign messages from the user.
+
+\begin{lstlisting}[language=Java]
+    async function generateHmac(message) {
+        try {
+            const uArray = str => new Uint8Array([...unescape(encodeURIComponent(str))].map(c => c.charCodeAt(0)));
+            const m = uArray(message)            
+            console.log("Message Send", m)
+            let Hkey = await window.crypto.subtle.generateKey(
+                {
+                  name: "HMAC",
+                  hash: { name: "SHA-512" },
+                },
+                true,
+                ["sign"],
+              );
+\end{lstlisting}
+
+Once done, the shared secret then signs the encoded message and returns a signature.
+
+\begin{lstlisting}[language=Java]
+            const signature = window.crypto.subtle.sign(
+                "HMAC",
+                Hkey,
+                m 
+            )
+            return signature;
+        } catch (error) {
+            console.error("HMAC generation error: ", error);
+            return null; 
+        }
+    }
+\end{lstlisting}
+
+Lastly, we send the signature along with the message through socket.emit, catching any errors that may occur while doing so.
+
+\begin{lstlisting}[language=Java]
+    if (encryptedMessage && sigHmac) {
+        console.log("HMAC Signature: ", sigHmac);
+        console.log("Encrypted message sent: ", encryptedMessage);
+        add_message(`${username}: ${message}`, "grey"); // Display the original message directly
+        socket.emit("send", username, encryptedMessage, sigHmac, room_id);
+    } else {
+        console.error("Failed to encrypt message");
+    }
+\end{lstlisting}
+
+When the message is finally sent, we will then compare the signatures by taking in the message received, as well as the signature that was sent along with the message.
+
+\begin{lstlisting}[language=Java]
+const validateAuth = await HmacVerify(data.message, data.signature);
+\end{lstlisting}
+
+With the shared secret, we then use \textit{window.crypto.subtle.verify} to compare the signature sent along with the message, and the resulting signature from our shared secret and encoded message. A boolean promise is then returned to the server, detailing whether or not both signatures are the same. If such, then the message has not been modified in any way, and thus integrity is assumed.
+
+\begin{lstlisting}[language=Java]
+    async function HmacVerify(message, signature) {
+        console.log("Signature incoming: ", signature)
+        const uArray = str => new Uint8Array([...unescape(encodeURIComponent(str))].map(c => c.charCodeAt(0)));
+        const m = uArray(message)  
+        console.log("Message incoming", m)
+        console.log("Signature Incoming", signature)
+          let Hkey = await window.crypto.subtle.generateKey(
+                {
+                  name: "HMAC",
+                  hash: { name: "SHA-512" },
+                },
+                true,
+                ["verify"],
+              );
+        console.log("Key Incoming", Hkey)
+        let result = await window.crypto.subtle.verify(
+            "HMAC",
+            Hkey,
+            signature,
+            m
+        );
+        return result;
+    };
+\end{lstlisting}
+
+
+
+
+\section{Hash and Salt}
+\textit{Contributed by Ian}
+
+The system employs a hashing mechanism where the password provided by the user is transformed using a cryptographic hash function. This hash function is designed to be one-way, meaning that it is computationally infeasible to reverse the hash value to retrieve the original password.
+
+\subsubsection*{Password Hashing}
+The password is hashed using the SHA-256 hashing algorithm. This algorithm converts the password into a fixed-size string of characters, which is stored in the database instead of the actual password.
+
+\begin{lstlisting}[language=Java]
+let hashedPassword = CryptoJS.SHA256(password).toString();
+\end{lstlisting}
+
+\subsubsection*{Salting}
+A unique salt is generated for each password. This salt is a random string added to the password before it is hashed. The purpose of the salt is to prevent attackers from using precomputed hash tables to crack the password.
+
+\begin{lstlisting}[language=Java]
+const salt = window.crypto.getRandomValues(new Uint8Array(16));
+const saltBase64 = btoa(String.fromCharCode(...salt));
+\end{lstlisting}
+
+\subsubsection*{Storing Hash and Salt}
+Both the hash and the salt are stored in the database. The hash is used to verify the user's password at login, and the salt is required to hash the user password in the same way for future verifications.
+
+\begin{lstlisting}[language=Java]
+// Store hashed password and salt in database
+db.insert_user(username, hashedPassword, saltBase64, publicKeyBase64);
+\end{lstlisting}
+
+\section*{Server-side Implementation}
+On the server side, the hashed password and salt are handled securely to prevent any leaks or unauthorized access.
+
+\begin{lstlisting}[language=Python]
+def insert_user(username: str, password: str, salt: str, public_key: str):
+    hashed_password = generate_password_hash(password + salt)
+    with Session(engine) as session:
+        user = User(username=username, password=hashed_password, public_key=public_key)
+        session.add(user)
+        session.commit()
+\end{lstlisting}
+
+\section{HTTPS}
+\textit{Contributed by Scott}
+
+HTTPS is a more secure version of HTTP, allowing for the use of SSL/TLS protocols in web applications. While it may be trivial to generate a private key as well as the root certificate using openssl, it is quite difficult to ensure you have a trusted root certificates list. To ease such a process, I employed the use of the git repository, \textit{mkcert.org}. The repository allows for a more streamlined, ease of use API to generate a custom PEM file. 
+
+\begin{lstlisting}[language=bash]
+mkcert example.com "*.example.com" example.test localhost 127.0.0.1 ::1
+\end{lstlisting}
+
+Once run, we are given two files:
+
+\begin{lstlisting}[language=bash]
+example.com+5-key.com
+example.com+5.pem
+\end{lstlisting}
+
+With this, our local CA is currently installed in the Firefox and/or Chromium trust store. However, there are still a couple of steps to take in order to fully validate our local CA certificates.
+
+In most linux distros (in this case, ubuntu) we must install our root CA certificate into the trust store. This is simply done by copying our newly generated PEM file into the root CA certificate directory in our distro. After copying our file, we update our CA certificates accordingly.
+
+\begin{lstlisting}[language=bash]
+sudo cp example.com+5.pem /usr/local/share/ca-certificates/example.com+5.crt
+sudo update-ca-certificates
+\end{lstlisting}
+
+Lastly, we employ the use of Nginx to complete our ssl installation by editing our virtual host file. In doing so we, firstly define our new server name (in this cae, example.com). specify the location of the new server. Considering we are running the program locally, we set it to localhost on port 1204. To configure the ssl parameters, we define the port we will be listening on. In this case, 443 as it is the standard port for secured connections. Lastly, we define our newly created PEM and PEM-key file by giving the server the path to each file respectively.
+
+\begin{lstlisting}[language=bash]
+server {
+    server_name example.com;
+    location / {
+        proxy_pass http://127.0.0.1:1204/;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Port $server_port;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Forwarded-For "IP"
+        expires 1M;
+        access_log off;
+        add_header Cache-Control "public";
+    }
+    listen [::]:443 ssl http2;
+    listen 443 ssl http2;
+    ssl_certificate /path/to/example.com+5.pem
+    ssl_certificate_key /path/to/example.com+5-key.com
+}
+\end{lstlisting}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.5\linewidth]{HTTPS.png}
+    \caption{Working HTTPS Connection}
+    \label{fig:enter-label}
+\end{figure}
+
+Lastly, we simply add our certfile and keyfile to our socketio.run function on app start.
+\begin{lstlisting}[language=Python]
+if __name__ == '__main__':
+    socketio.run(app, host = 'localhost', port = 1204,
+                 keyfile = 'example.com+5-key.pem',
+                 certfile = 'example.com+5.pem')
+\end{lstlisting}
+
+And with this, we have now set up a HTTPS connection to our locally hosted server.
+
+\section{Authentication}
+\textit{Contributed by Ian}
+
+\subsection*{JWT Authentication}
+JSON Web Tokens (JWT) are used to manage secure routes on our server. This token-based authentication strategy ensures that once a user is logged in, they receive a token that must be included in the headers of all subsequent requests requiring authentication.
+
+\begin{lstlisting}[language=Python]
+# Configure JWT
+app.config['JWT_SECRET_KEY'] = 'your_jwt_secret_key'
+jwt = JWTManager(app) 
+
+@app.route("/home")
+@jwt_required()
+def home():
+    current_user = get_jwt_identity()  # Get the identity of the current user from JWT
+    return render_template("home.jinja", username=current_user)
+\end{lstlisting}
+
+\subsection*{Login and Token Issuance}
+Upon login, a check is performed to ensure the user's credentials are correct. A JWT is then generated and sent to the user's browser as a cookie, which must be presented on subsequent requests.
+
+\begin{lstlisting}[language=Python]
+@app.route("/login/user", methods=["POST"])
+def login_user():
+    username = request.json.get("username")
+    password = request.json.get("password")
+    user = db.get_user(username)
+    if not check_password_hash(user.password, password):
+        return jsonify({"login": False, "msg": "Password does not match!"}), 401
+    access_token = create_access_token(identity=username)
+    response = jsonify({'login': True, "msg": "Login successful"})
+    set_access_cookies(response, access_token)
+    return response
+\end{lstlisting}
+
+\subsection*{Securing Routes}
+All critical routes are secured using the \texttt{@jwt\_required()} decorator, which ensures that no unauthenticated requests can access these endpoints. This protection is extended to any action that modifies data, retrieves sensitive information, or could potentially expose user data.
+
+\begin{lstlisting}[language=Python]
+@app.route("/add-friend", methods=["POST"])
+@jwt_required()
+def add_friend():
+    sender = get_jwt_identity()
+    receiver = request.json.get("receiver")
+    db.send_friend_request(sender, receiver)
+    return "Friend request sent successfully!", 200
+\end{lstlisting}
+
+\subsection*{Authentication Tests}
+Specific tests were conducted focusing on authentication:
+
+\begin{enumerate}
+    \item \textbf{Credential Testing:} Automated scripts attempted to use common passwords and previously breached credentials to access the system.
+    \item \textbf{Token Manipulation:} JWT tokens were modified to test the integrity checks and session management.
+    \item \textbf{Route Authorization:} Automated tools and manual testing were used to access protected routes without proper authentication.
+\end{enumerate}
+
+\begin{lstlisting}[language=Python]
+# Example of an automated test for route authorization
+import requests
+
+def test_unauthenticated_access():
+    urls = [
+        "http://example.com/api/protected",
+        "http://example.com/api/admin",
+        "http://example.com/api/delete-user"
+    ]
+    for url in urls:
+        response = requests.get(url)
+        assert response.status_code == 401, f"Unauthorized access allowed for {url}"
+
+test_unauthenticated_access()
+\end{lstlisting}
+
+
+\end{document}

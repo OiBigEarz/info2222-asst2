@@ -83,15 +83,21 @@ def signup():
 @app.route("/signup/user", methods=["POST"])
 def signup_user():
     if not request.is_json:
-        abort(404)
+        return jsonify({"msg": "Request must be JSON"}), 400
+
     username = request.json.get("username")
     password = request.json.get("password")
     public_key = request.json.get("public_key")
+    salt = request.json.get("salt")  # Retrieve the salt from the request
+
+    if not username or not password or not public_key or not salt:
+        return jsonify({"msg": "Missing required parameters"}), 400
 
     if db.get_user(username) is not None:
         return jsonify({"msg": "User already exists!"}), 409
 
-    db.insert_user(username, password, public_key)
+    # Ensure all required arguments are passed to the insert_user function
+    db.insert_user(username, password, public_key, salt)
     access_token = create_access_token(identity=username)
     response = jsonify({'signup': True})
     set_access_cookies(response, access_token)
@@ -169,7 +175,21 @@ def get_messages(username, receiver):
     messages = db.get_messages_between_users(username, receiver)
     return jsonify([{"message": message.message, "sender": message.sender, "timestamp": message.timestamp.isoformat()} for message in messages])
 
+<<<<<<< HEAD
 if __name__ == '__main__':
     socketio.run(app, host = 'localhost', port = 1204,
                  keyfile = 'example.com+5-key.pem',
                  certfile = 'example.com+5.pem')
+=======
+@app.route('/get_salt/<username>', methods=['GET'])
+def get_salt(username):
+    user = db.get_user(username)
+    if user and hasattr(user, 'salt') and user.salt:
+        return jsonify({"salt": user.salt}), 200
+    else:
+        return jsonify({"error": "User not found or salt unavailable"}), 404
+
+
+#if __name__ == '__main__':
+#    socketio.run(app, host = 'localhost', port = 1204)
+>>>>>>> main
