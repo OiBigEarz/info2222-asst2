@@ -4,9 +4,8 @@ this is where you'll find all of the get/post request handlers
 the socket event handlers are inside of socket_routes.py
 '''
 "comment used for checking git commit"
-from flask import Flask, render_template, request, abort, url_for, jsonify
+from flask import Flask, render_template, request, abort, url_for
 from flask_socketio import SocketIO
-from flask_cors import CORS
 import db
 import secrets
 from werkzeug.security import check_password_hash
@@ -17,8 +16,10 @@ from werkzeug.security import check_password_hash
 # this turns off Flask Logging, uncomment this to turn off Logging
 # log = logging.getLogger('werkzeug')
 # log.setLevel(logging.ERROR)
+
 app = Flask(__name__)
-CORS(app) 
+
+
 
 # secret key used to sign the session cookie
 app.config['SECRET_KEY'] = secrets.token_hex()
@@ -135,20 +136,7 @@ def reject_friend_request():
     db.reject_friend_request(request_id)
     return "Friend request rejected", 200
 
-@app.route("/get-public-key/<username>", methods=["GET"])
-def get_public_key(username):
-    print("Fetching public key for:", username)
-    user = db.get_user(username)
-    if user is None:
-        print("User not found:", username)
-        return jsonify({"error": "User not found"}), 404
-    print("Public key found:", user.public_key)
-    return jsonify({"public_key": user.public_key}), 200
-
-@app.route("/get-messages/<username>/<receiver>", methods=["GET"])
-def get_messages(username, receiver):
-    messages = db.get_messages_between_users(username, receiver)
-    return jsonify([{"message": message.message, "sender": message.sender, "timestamp": message.timestamp.isoformat()} for message in messages])
-
 if __name__ == '__main__':
-   socketio.run(app, host = 'localhost', port = 1204)
+    socketio.run(app, host = 'localhost', port = 1204,
+    certfile = '/home/oibigearz/Desktop/INFO2222/Assignment/info2222-asst2/mycerts/example.com+5.pem', 
+    keyfile = '/home/oibigearz/Desktop/INFO2222/Assignment/info2222-asst2/mycerts/example.com+5-key.pem')
