@@ -92,16 +92,13 @@ Sign up page, pretty much the same as login.
             const saltBase64 = btoa(String.fromCharCode(...salt));
 
             // RSA key pair generation and handling remains the same
-            let keyPair = await window.crypto.subtle.generateKey(
-                {
-                    name: "RSA-OAEP",
-                    modulusLength: 2048,
-                    publicExponent: new Uint8Array([1, 0, 1]),
-                    hash: {name: "SHA-256"},
-                },
-                true,
-                ["encrypt", "decrypt"]
-            );
+            let keyPair = await window.crypto.subtle.generateKey({
+                name: "RSA-OAEP",
+                modulusLength: 2048,
+                publicExponent: new Uint8Array([1, 0, 1]),
+                hash: {name: "SHA-256"},
+            }, true, ["encrypt", "decrypt"]);
+
             const exportedPrivateKey = await window.crypto.subtle.exportKey("pkcs8", keyPair.privateKey);
             const privateKeyBase64 = btoa(String.fromCharCode(...new Uint8Array(exportedPrivateKey)));
             await storePrivateKey(username, privateKeyBase64);
@@ -111,29 +108,35 @@ Sign up page, pretty much the same as login.
 
             let hashedPassword = CryptoJS.SHA256(password).toString(); // Ensure server never knows the real password
 
+            // Corrected handling of the response to expect a JSON payload
             let signupURL = "{{ url_for('signup_user') }}";
-            let res = await axios.post(signupURL, {
-                username: username,
-                password: hashedPassword, // Send hashed password
-                public_key: publicKeyBase64,
-                salt: saltBase64  // Send the salt to the server
-            });
+            try {
+                let response = await axios.post(signupURL, {
+                    username: username,
+                    password: hashedPassword, // Send hashed password
+                    public_key: publicKeyBase64,
+                    salt: saltBase64  // Send the salt to the server
+                });
 
-            if (!isValidURL(res.data)) {
-                alert(res.data);
-                return;
+                if (response.data.signup) {
+                    // Assuming the response includes a redirect URL upon successful signup
+                    window.location.href = '/home'; // Redirect to home or another path as required
+                } else {
+                    alert("Signup failed: " + response.data.msg);
+                }
+            } catch (error) {
+                console.error("Signup error:", error);
+                alert("Signup error: " + (error.response ? error.response.data.msg : "Server error"));
             }
-            window.open(res.data, "_self");
         }
 
         function isValidURL(string) {
-            if (string.length == 0) {
+            try {
+                new URL(string);
+                return true;
+            } catch (e) {
                 return false;
             }
-            if (string[0] == "/") {
-                return true;
-            }
-            return false;
         }
 
     </script>
