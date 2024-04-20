@@ -30,6 +30,7 @@ class User(Base):
     username: Mapped[str] = mapped_column(String, primary_key=True)
     password: Mapped[str] = mapped_column(String)
     public_key: Mapped[str] = mapped_column(Text)
+    salt: Mapped[str] = mapped_column(String)  # Adding salt column
     
 class Message(Base):
     __tablename__ = 'messages'
