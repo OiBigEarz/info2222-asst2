@@ -75,6 +75,7 @@
                     console.error('Login error:', error);
                     alert('Login error: ' + (error.response && error.response.data ? error.response.data.msg : 'Server error'));
                 }
+
             } catch (error) {
                 console.error('Error fetching salt:', error);
                 alert('Login error: Could not fetch salt for key derivation');
@@ -99,7 +100,7 @@
                 },
                 keyMaterial,
                 { name: "AES-GCM", length: 256 },
-                false,  // Whether the key is extractable (i.e., can be exported out of the crypto context)
+                true,  // Whether the key is extractable (i.e., can be exported out of the crypto context)
                 ["encrypt", "decrypt"]
             );
         }

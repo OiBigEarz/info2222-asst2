@@ -59,19 +59,21 @@ def login_user():
     username = request.json.get("username")
     password = request.json.get("password")
 
-    user = db.get_user(username)
-    if user is None:
-        return jsonify({"login": False, "msg": "User does not exist!"}), 404
+    try:
+        user = db.get_user(username)
+        if user is None:
+            return jsonify({"login": False, "msg": "User does not exist!"}), 404
 
-    # Check if hashed password matches
-    if not check_password_hash(user.password, password):
-        return jsonify({"login": False, "msg": "Password does not match!"}), 401
+        # Ensure this comparison is what you intend it to be
+        if not check_password_hash(user.password, password):
+            return jsonify({"login": False, "msg": "Password does not match!"}), 401
 
-    # Create a token
-    access_token = create_access_token(identity=username)
-    response = jsonify({'login': True, "msg": "Login successful"})
-    set_access_cookies(response, access_token)  # Set the JWT in a cookie
-    return response
+        access_token = create_access_token(identity=username)
+        response = jsonify({'login': True, "msg": "Login successful"})
+        set_access_cookies(response, access_token)
+        return response
+    except Exception as e:
+        return jsonify({"login": False, "msg": str(e)}), 500
 
 
 # handles a get request to the signup page
