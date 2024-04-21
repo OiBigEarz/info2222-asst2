@@ -265,9 +265,7 @@
             m
         );
         return result;
-    };
-
-    
+    };   
 
     // Modify the existing incoming message handler to decrypt messages
     socket.on("incoming", async (data, color = "black") => {
@@ -280,8 +278,8 @@
             if (data.username !== username) {  // Check if the message is from another user
                 if (color === "black") {  // Assume "black" color means it needs decryption
                     const decryptedMessage = await decryptMessage(data.message);
-                    const validateAuth = await HmacVerify(data.message, data.signature);
-                    console.log(validateAuth)
+                    //const validateAuth = await HmacVerify(data.message, data.signature);
+                    //console.log(validateAuth)
                     messageToDisplay = `${data.username}: ${decryptedMessage || "Decryption error"}`;
                 } else {
                     messageToDisplay = `${data.username}: ${data.message}`;
