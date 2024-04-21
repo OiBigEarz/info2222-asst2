@@ -98,6 +98,7 @@ def insert_message(sender_username, receiver_username, message, iv):
         session.add(new_message)
         session.commit()
 
+
 def get_messages_for_user(username):
     with Session(engine) as session:
         # Retrieve all messages where the user is the sender or receiver

@@ -4,7 +4,7 @@ this is where you'll find all of the get/post request handlers
 the socket event handlers are inside of socket_routes.py
 '''
 "comment used for checking git commit"
-from flask import Flask, render_template, request, abort, url_for, jsonify, redirect
+from flask import Flask, render_template, request, abort, url_for, jsonify, redirect, current_app
 from flask_socketio import SocketIO
 from flask_cors import CORS
 import db
@@ -173,7 +173,12 @@ def get_public_key(username):
     return jsonify({"public_key": user.public_key}), 200
 
 @app.route("/get-messages/<username>/<receiver>", methods=["GET"])
+@jwt_required()
 def get_messages(username, receiver):
+    # Ensure the user requesting is the same as the session user
+    current_user = get_jwt_identity()
+    if username != current_user:
+        return jsonify({"error": "Unauthorized"}), 401
     messages = db.get_messages_between_users(username, receiver)
     return jsonify([{"message": message.message, "sender": message.sender, "timestamp": message.timestamp.isoformat()} for message in messages])
 
@@ -184,6 +189,20 @@ def get_salt(username):
         return jsonify({"salt": user.salt}), 200
     else:
         return jsonify({"error": "User not found or salt unavailable"}), 404
+    
+@app.route('/send-message', methods=['POST'])
+def send_message():
+    if not request.is_json:
+        return jsonify({"error": "Invalid content type"}), 415
+    
+    data = request.get_json()
+    try:
+        db.insert_message(data['sender'], data['receiver'], data['encryptedMessage'], data['iv'])
+        return jsonify({"success": True})
+    except Exception as e:
+        current_app.logger.error(f"Exception during message insert: {e}", exc_info=True)
+        return jsonify({"error": "Internal Server Error"}), 500
+
 
 
 #if __name__ == '__main__':
