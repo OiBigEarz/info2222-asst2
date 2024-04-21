@@ -119,8 +119,6 @@ def home():
     return render_template("home.jinja", username=current_user, friends=friends,
                            received_requests=received_requests, sent_requests=sent_requests)
 
-
-
 # Route to send a friend request
 @app.route("/add-friend", methods=["POST"])
 def add_friend():

@@ -236,24 +236,31 @@
     }
 
     async function HmacVerify(message, signature) {
-        console.log("Signature incoming: ", signature)
+
+        let sessionHkey = sessionStorage.getItem("Hkey");
+        let sessionHkeyJSON = JSON.parse(sessionHkey);
+
+        console.log("Signature incoming: ", signature);
         const uArray = str => new Uint8Array([...unescape(encodeURIComponent(str))].map(c => c.charCodeAt(0)));
-        const m = uArray(message)  
-        console.log("Message incoming", m)
-        console.log("Signature Incoming", signature)
-          let Hkey = await window.crypto.subtle.generateKey(
-                {
-                  name: "HMAC",
-                  hash: { name: "SHA-512" },
-                },
-                true,
-                ["verify"],
-              );
-        console.log("Key Incoming", Hkey)
+        const m = uArray(message);
+        console.log("Message incoming", m);
+        console.log("Signature Incoming", signature);
+        console.log("Key Incoming ", sessionHkeyJSON)
+        
+        const importedHmacKey = await window.crypto.subtle.importKey(
+            "raw",
+            sessionHkeyJSON,
+            {
+                name: "HMAC",
+                hash: {name: "SHA-256"}
+            },
+            true,
+            ["verify"]
+        );
 
         let result = await window.crypto.subtle.verify(
             "HMAC",
-            Hkey,
+            sessionHkey,
             signature,
             m
         );
@@ -365,6 +372,9 @@
             )
             console.log("Signature Send", signature)
             console.log("Key Send", Hkey)
+
+            let exportHkey = await crypto.subtle.exportKey("raw", Hkey);
+            sessionStorage.setItem("Hkey", JSON.stringify(exportHkey));
 
             return signature;
 
