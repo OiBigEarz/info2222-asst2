@@ -347,6 +347,7 @@
 
     // Function to Import Key from Base64 (used in both encrypt and decrypt)
     async function importKeyFromBase64(keyBase64) {
+        console.log(keyBase64)
         const keyBytes = Uint8Array.from(atob(keyBase64), c => c.charCodeAt(0));
         // Ensure the key length is 32 bytes (256 bits)
         if (keyBytes.length !== 32) {
@@ -383,10 +384,12 @@
         if (encryptedMessage && sigHmac) {
             console.log("HMAC Generated: ", sigHmac);
             console.log("Encrypted message sent: ", encryptedMessage);
-            const room_id = Cookies.get("room_id");  // Make sure room_id is being correctly
-
+            // Emitting the message via socket for real-time communication
             // Display the original message on the sender's side
             add_message(`${username}: ${message}`, "grey");
+            socket.emit("send", username, encryptedMessage, sigHmac, room_id);
+
+
 
 
             console.log("Emitting message:", {
@@ -396,11 +399,11 @@
                 room_id: room_id
             });
 
-            // Emitting the message via socket for real-time communication
-            socket.emit("send", username, encryptedMessage, sigHmac, room_id);
 
             // Store the encrypted message in the database
+            console.log("Retrieved key from storage:", sessionStorage.getItem("key"));
             const { encryptedContent, iv } = await encryptMessageHistory(message, sessionStorage.getItem("key"));
+            console.log("Stored key:", sessionStorage.getItem("key"));
 
             $.ajax({
                 url: '/send-message',
