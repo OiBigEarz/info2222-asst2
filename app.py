@@ -180,7 +180,8 @@ def get_messages(username, receiver):
     if username != current_user:
         return jsonify({"error": "Unauthorized"}), 401
     messages = db.get_messages_between_users(username, receiver)
-    return jsonify([{"message": message.message, "sender": message.sender, "timestamp": message.timestamp.isoformat()} for message in messages])
+    return jsonify([{"message": message.message, "iv": message.iv, "sender": message.sender, "timestamp": message.timestamp.isoformat()} for message in messages])
+
 
 @app.route('/get_salt/<username>', methods=['GET'])
 def get_salt(username):
