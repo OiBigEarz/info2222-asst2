@@ -167,9 +167,8 @@
                 ["sign", "verify"],
             );
             const exportHkey = await window.crypto.subtle.exportKey("raw", Hkey)
-
-            const exportHkeyArray = new Uint8Array(exportHkey);
-            localStorage.setItem("Hkey", btoa(String.fromCharCode(...exportHkeyArray)));
+            const exportHkeyBase64 = btoa(String.fromCharCode.apply(null, [...new Uint8Array(exportHkey)]));
+            localStorage.setItem("Hkey", exportHkeyBase64);
 
         } catch (error) {
             console.error("HMAC Key Generation Error: ", error);
@@ -215,6 +214,19 @@
         }
     }
 
+    function str2ab(str) {
+        const buf = new ArrayBuffer(str.length);
+        const bufView = new Uint8Array(buf);
+        for (let i = 0, strLen = str.Length; i < strLen; i++) {
+            bufView[i] = str.charCodeAt(i);
+        }
+        return buf;
+    }
+
+    function b642ab(base64str) {
+        return Uint8Array.from(window.atob(base64str), c => c.charCodeAt(0));
+    }
+
     async function decryptMessage(encryptedMessage) {
         console.log("Decrypting message: ", encryptedMessage);
         if (!isBase64(encryptedMessage)) {
@@ -258,19 +270,17 @@
 
 async function verify(message) {
     try {
+        let encMessage = new TextEncoder().encode(message);
 
-        let enc = new TextEncoder();
-        let encMessage = enc.encode(message);
-
-        let sig = localStorage.getItem("Signature")
-        let sigArrayBuffer = Uint8Array.from(atob(sig), c => c.charCodeAt(0))
-
+        let sig = localStorage.getItem("Signature");
         let key = localStorage.getItem("Hkey");
-        let keyArrayBuffer = Uint8Array.from(atob(key), c => c.charCodeAt(0))
-        
+
+        console.log("Verify Signature", b642ab(sig));
+        console.log("Verify Key", b642ab(key));
+
         const importHkey = await crypto.subtle.importKey(
             'raw',
-            keyArrayBuffer,
+            b642ab(key),
             {name: 'HMAC',
             hash: {
                 name: 'SHA-256'
@@ -282,20 +292,13 @@ async function verify(message) {
         let result = await window.crypto.subtle.verify(
             "HMAC",
             importHkey,
-            sigArrayBuffer,
+            b642ab(sig),
             encMessage
         );
 
-        console.log("Within verify()")
-        console.log("Signature: ", sigArrayBuffer)
-        console.log("Message: ", encMessage)
-        console.log("Imported Key", importHkey)
-        console.log("Key Get", keyArrayBuffer)
-
-        console.log("The result is...", result)
-
         if(result) {
-            console.log("Verified True!")
+            console.log("Verified True!")        //let keyArrayBuffer = Uint8Array.from(window.atob(key), c => c.charCodeAt(0));
+
             return true;
         } else {
             console.log("Verified False!")
@@ -320,6 +323,7 @@ async function verify(message) {
                 if (color === "black") {  // Assume "black" color means it needs decryption
                     const decryptedMessage = await decryptMessage(data.message);
                     const verifyMessage = await verify(decryptedMessage);
+                    console.log("After waiting, we get the boolean, ", verifyMessage);
                     messageToDisplay = `${data.username}: ${decryptedMessage || "Decryption error"}`;
                 } else {
                     messageToDisplay = `${data.username}: ${data.message}`;
@@ -339,13 +343,13 @@ async function verify(message) {
     async function fetchPublicKey(username) {
         const url = `/get-public-key/${username}`;
         try {
-            console.log("Fetching public key for username: ", username);
+            //console.log("Fetching public key for username: ", username);
             const response = await fetch(url);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             const data = await response.json();
-            console.log("Public key data received: ", data.public_key);
+            //console.log("Public key data received: ", data.public_key);
             const publicKey = await window.crypto.subtle.importKey(
                 "spki",
                 new Uint8Array(atob(data.public_key).split('').map(char => char.charCodeAt(0))),
@@ -380,7 +384,7 @@ async function verify(message) {
 
     // Function to Decrypt Message History
     async function decryptMessageHistory(encryptedMessage, ivBase64, keyBase64) {
-        console.log("Before decryption:", { encryptedMessage, ivBase64, keyBase64 });
+        //console.log("Before decryption:", { encryptedMessage, ivBase64, keyBase64 });
 
         if (!isBase64(encryptedMessage) || !isBase64(ivBase64) || !isBase64(keyBase64)) {
             console.error('Invalid Base64 encoding found in one of the parameters');
@@ -399,7 +403,7 @@ async function verify(message) {
             );
 
             const decodedText = new TextDecoder().decode(decryptedContent);
-            console.log("Decrypted Text:", decodedText);
+            //console.log("Decrypted Text:", decodedText);
             return decodedText;
         } catch (error) {
             console.error("Decryption process error:", error);
@@ -416,7 +420,7 @@ async function verify(message) {
 
     // Function to Import Key from Base64 (used in both encrypt and decrypt)
     async function importKeyFromBase64(keyBase64) {
-        console.log(keyBase64)
+        //console.log(keyBase64)
         const keyBytes = Uint8Array.from(atob(keyBase64), c => c.charCodeAt(0));
         // Ensure the key length is 32 bytes (256 bits)
         if (keyBytes.length !== 32) {
@@ -445,33 +449,28 @@ async function verify(message) {
             return;
         }
 
+        await sign(message);
 
-        await sign(message)
         // Encrypt the message with the receiver's public key
         const encryptedMessage = await encryptMessage(publicKey, message);
 
         if (encryptedMessage) {
-            console.log("Encrypted message sent: ", encryptedMessage);
+            //console.log("Encrypted message sent: ", encryptedMessage);
             // Emitting the message via socket for real-time communication
             // Display the original message on the sender's side
             add_message(`${username}: ${message}`, "grey");
             socket.emit("send", username, encryptedMessage, room_id);
 
-
-
-
             console.log("Emitting message:", {
                 username: username,
                 message: encryptedMessage,
-                signature: sigHmac,
                 room_id: room_id
             });
 
-
             // Store the encrypted message in the database
-            console.log("Retrieved key from storage:", sessionStorage.getItem("key"));
+            //console.log("Retrieved key from storage:", sessionStorage.getItem("key"));
             const { encryptedContent, iv } = await encryptMessageHistory(message, sessionStorage.getItem("key"));
-            console.log("Stored key:", sessionStorage.getItem("key"));
+            //console.log("Stored key:", sessionStorage.getItem("key"));
 
             $.ajax({
                 url: '/send-message',
@@ -489,7 +488,7 @@ async function verify(message) {
                 },
                 error: function(jqXHR, textStatus) {
                     console.error("Failed to send message for storage:", textStatus);
-                    alert("Failed to store message history.");
+                    //alert("Failed to store message history.");
                 }
             });
         } else {
@@ -499,16 +498,16 @@ async function verify(message) {
 
     async function sign(message) {
         try {
-
-            let enc = new TextEncoder();
-            let encMessage = enc.encode(message);
+            let encMessage = new TextEncoder().encode(message);
 
             let key = localStorage.getItem("Hkey");
-            let keyArrBuffer = Uint8Array.from(atob(key), c => c.charCodeAt(0));
+            //let keyArrBuffer = Uint8Array.from(atob(key), c => c.charCodeAt(0));
+
+            console.log("Sign Key", b642ab(key))
 
             const importHkey = await crypto.subtle.importKey(
                 'raw',
-                keyArrBuffer,
+                b642ab(key),
                 {name: 'HMAC',
                 hash: {
                     name: 'SHA-256'
@@ -522,13 +521,13 @@ async function verify(message) {
                 importHkey,
                 encMessage
             );
+            const signatureBase64 = btoa(String.fromCharCode.apply(null, [...new Uint8Array(signature)]));
 
-            const signatureArray = new Uint8Array(signature);
-            localStorage.setItem("Signature", btoa(String.fromCharCode(...signatureArray)));
-
-            console.log("Message: ", encMessage)
-            console.log("Imported Key", importHkey)
-            console.log("Key get", keyArrBuffer)
+            localStorage.setItem("Signature", signatureBase64);
+            //console.log("Message: ", encMessage);
+            //console.log("Imported Key", importHkey);
+            //console.log("Key get", keyArrBuffer);
+            //console.log("Signature", signatureBase64);
 
         } catch (error) {
             console.error("HMAC generation error: ", error);
@@ -614,11 +613,9 @@ async function verify(message) {
             }
         } catch (error) {
             console.error('Failed to fetch or process message history:', error);
-            alert('Could not load message history.');
+            //alert('Could not load message history.');
         }
     }
-
-
 
     // Function to display message history in the UI
     async function displayMessageHistory(messages) {

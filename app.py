@@ -180,7 +180,6 @@ def get_messages(username, receiver):
     messages = db.get_messages_between_users(username, receiver)
     return jsonify([{"message": message.message, "iv": message.iv, "sender": message.sender, "timestamp": message.timestamp.isoformat()} for message in messages])
 
-
 @app.route('/get_salt/<username>', methods=['GET'])
 def get_salt(username):
     user = db.get_user(username)
@@ -202,10 +201,7 @@ def send_message():
         current_app.logger.error(f"Exception during message insert: {e}", exc_info=True)
         return jsonify({"error": "Internal Server Error"}), 500
 
-
 if __name__ == '__main__':
     socketio.run(app, host = 'localhost', port = 1204,
     keyfile = 'example.com+5-key.pem',
     certfile = 'example.com+5.pem')
-
-
