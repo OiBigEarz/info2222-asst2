@@ -160,12 +160,12 @@ def reject_friend_request():
 
 @app.route("/get-public-key/<username>", methods=["GET"])
 def get_public_key(username):
-    print("Fetching public key for:", username)
+    #print("Fetching public key for:", username)
     user = db.get_user(username)
     if user is None:
         print("User not found:", username)
         return jsonify({"error": "User not found"}), 404
-    print("Public key found:", user.public_key)
+    #print("Public key found:", user.public_key)
     return jsonify({"public_key": user.public_key}), 200
 
 @app.route("/get-messages/<username>/<receiver>", methods=["GET"])
