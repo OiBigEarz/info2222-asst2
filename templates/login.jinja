@@ -27,6 +27,60 @@
             return false;
         }
 
+        // This function initializes the database and upgrades it if necessary
+        function initDatabase() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open("chatAppDB", 1);  // Ensure the database name and version are consistent
+
+                request.onupgradeneeded = function(event) {
+                    const db = event.target.result;
+                    if (!db.objectStoreNames.contains("keys")) {
+                        db.createObjectStore("keys", { keyPath: "username" });
+                        console.log("Database upgraded and 'keys' object store created.");
+                    } 
+                };
+
+                request.onsuccess = function() {
+                    console.log("Database initialized successfully.");
+                    resolve(request.result);
+                };
+
+                request.onerror = function(event) {
+                    console.error("Database error: " + event.target.errorCode);
+                    reject(event.target.error);
+                };
+            });
+        }
+
+        async function loadPrivateKey(username) {
+            const db = await initDatabase();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(["keys"], "readonly");
+                const store = transaction.objectStore("keys");
+                const request = store.get(username);
+                request.onsuccess = function() {
+                    if (request.result) {
+                        console.log("Private key retrieved for", username);
+                        resolve(request.result.privateKey);
+                    } else {
+                        console.error("No private key found for", username);
+                        reject("No key found");
+                    }
+                };
+                request.onerror = function(event) {
+                    console.error("Error retrieving private key:", event.target.error);
+                    reject(event.target.error);
+                };
+            });
+        }
+
+
+        async function deriveSalt(username) {
+            const encoder = new TextEncoder();
+            const hashBuffer = await window.crypto.subtle.digest('SHA-256', encoder.encode(username));
+            return new Uint8Array(hashBuffer).slice(0, 16); // Use the first 16 bytes as the salt
+        }
+
         // login function to well login...
         async function login() {
             let username = $("#username").val();
@@ -46,38 +100,30 @@
             // Step 1: Fetch salt for the username from the server
             try {
                 let saltResponse = await axios.get("{{ url_for('get_salt', username='PLACEHOLDER') }}".replace('PLACEHOLDER', encodeURIComponent(username)));
-
                 if (!saltResponse.data.salt) {
                     throw new Error("Salt not found for the user");
                 }
-                let saltBase64 = saltResponse.data.salt;
-                let salt = Uint8Array.from(atob(saltBase64), c => c.charCodeAt(0));
+                let salt = Uint8Array.from(atob(saltResponse.data.salt), c => c.charCodeAt(0));
 
-                // Step 2: Derive the encryption key using the password and salt
+                // Derive the AES key using the same salt used during signup
                 const key = await deriveKey(password, salt);
+                const keyBase64 = btoa(String.fromCharCode(...new Uint8Array(await window.crypto.subtle.exportKey("raw", key))));
+                sessionStorage.setItem("key", keyBase64); // Store key in session for message encryption/decryption
+
+                // Load the RSA private key from local storage to decrypt incoming messages
+                const rsaPrivateKeyBase64 = await loadPrivateKey(username);
+                sessionStorage.setItem("rsaPrivateKey", rsaPrivateKeyBase64);
 
                 // Continue with login process
-                try {
-                    let response = await axios.post("{{ url_for('login_user') }}", {
-                        username: username,
-                        password: hashedPassword
-                    });
-
-                    if (response.data.login) {
-                        // Store the key in sessionStorage or continue to use it directly in memory
-                        sessionStorage.setItem("key", btoa(String.fromCharCode(...new Uint8Array(await crypto.subtle.exportKey("raw", key)))));
-
-                        window.location.href = '/home';  // Redirect on successful login
-                    } else {
-                        alert("Login failed: " + response.data.msg);
-                    }
-                } catch (error) {
-                    console.error('Login error:', error);
-                    alert('Login error: ' + (error.response && error.response.data ? error.response.data.msg : 'Server error'));
+                let response = await axios.post("{{ url_for('login_user') }}", { username: username, password: hashedPassword });
+                if (response.data.login) {
+                    window.location.href = '/home'; // Redirect on successful login
+                } else {
+                    alert("Login failed: " + response.data.msg);
                 }
             } catch (error) {
-                console.error('Error fetching salt:', error);
-                alert('Login error: Could not fetch salt for key derivation');
+                console.error('Login error:', error);
+                alert('Login error: ' + (error.response && error.response.data ? error.response.data.msg : 'Server error'));
             }
         }
 
@@ -99,7 +145,7 @@
                 },
                 keyMaterial,
                 { name: "AES-GCM", length: 256 },
-                false,  // Whether the key is extractable (i.e., can be exported out of the crypto context)
+                true,  // Whether the key is extractable (i.e., can be exported out of the crypto context)
                 ["encrypt", "decrypt"]
             );
         }

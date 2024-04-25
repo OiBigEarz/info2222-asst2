@@ -45,8 +45,9 @@ def disconnect():
 @socketio.on("send")
 def send(username, message, room_id):
     # Here we structure the data as a dictionary before sending
-    emit("incoming", {"username": username, "message": message}, to=room_id)
-    
+    print(f"Sending message from {username} to room {room_id}")
+    emit("incoming", {"username": username, "message": message, "signature": signature}, to=room_id)
+
 # join room event handler
 # sent when the user joins a room
 @socketio.on("join")

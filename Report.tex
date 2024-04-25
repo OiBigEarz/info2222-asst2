@@ -30,7 +30,7 @@
 \lstset{style=mystyle}
 
 \title{Info2222 Security Assignment Report}
-\author{530317166, ScottSID}
+\author{530317166, 510460215}
 \date{\today}
 
 \begin{document}
@@ -40,17 +40,18 @@
 \section*{Contribution Summary}
 
 \subsection{530317166}
-Student Ian did the following
+Student Ian/530317166 did the following
 \begin{itemize}
     \item User login
     \item Friends feature
     \item Chatroom's asymmetric key generation encryption and decryption. 
+    \item Message History
     \item Hash and Salt
     \item Authentication
 \end{itemize}
 
-\subsection{ScottSID}
-Student Scott did the following
+\subsection{510460215}
+Student Scott/510460215 did the following
 \begin{itemize}
     \item Chatroom's Hmac 
     \item HTTPS
@@ -357,7 +358,7 @@ Each time a message is sent, the user and the server agree upon a shared secret 
               );
 \end{lstlisting}
 
-Once done, the shared secret then signs the encoded message and returns a signature.
+Once done, the shared secret then signs the encoded message and returns a signature. Afterwards, we store the raw key in the session memory for future use.
 
 \begin{lstlisting}[language=Java]
             const signature = window.crypto.subtle.sign(
@@ -371,6 +372,11 @@ Once done, the shared secret then signs the encoded message and returns a signat
             return null; 
         }
     }
+\end{lstlisting}
+
+\begin{lstlisting}[language=Java]
+        let exportHkey = await crypto.subtle.exportKey("raw", Hkey);
+        sessionStorage.setItem("Hkey", JSON.stringify(exportHkey));
 \end{lstlisting}
 
 Lastly, we send the signature along with the message through socket.emit, catching any errors that may occur while doing so.
@@ -395,33 +401,29 @@ const validateAuth = await HmacVerify(data.message, data.signature);
 With the shared secret, we then use \textit{window.crypto.subtle.verify} to compare the signature sent along with the message, and the resulting signature from our shared secret and encoded message. A boolean promise is then returned to the server, detailing whether or not both signatures are the same. If such, then the message has not been modified in any way, and thus integrity is assumed.
 
 \begin{lstlisting}[language=Java]
-    async function HmacVerify(message, signature) {
-        console.log("Signature incoming: ", signature)
+        let sessionHkey = sessionStorage.getItem("Hkey");
+        let sessionHkeyJSON = JSON.parse(sessionHkey);
         const uArray = str => new Uint8Array([...unescape(encodeURIComponent(str))].map(c => c.charCodeAt(0)));
-        const m = uArray(message)  
-        console.log("Message incoming", m)
-        console.log("Signature Incoming", signature)
-          let Hkey = await window.crypto.subtle.generateKey(
-                {
-                  name: "HMAC",
-                  hash: { name: "SHA-512" },
-                },
-                true,
-                ["verify"],
-              );
-        console.log("Key Incoming", Hkey)
+        const m = uArray(message);
+        const importedHmacKey = await window.crypto.subtle.importKey(
+            "raw",
+            sessionHkeyJSON,
+            {
+                name: "HMAC",
+                hash: {name: "SHA-256"}
+            },
+            true,
+            ["verify"]
+        );
         let result = await window.crypto.subtle.verify(
             "HMAC",
-            Hkey,
+            sessionHkey,
             signature,
             m
         );
         return result;
-    };
+    };   
 \end{lstlisting}
-
-
-
 
 \section{Hash and Salt}
 \textit{Contributed by Ian}
@@ -603,3 +605,5 @@ test_unauthenticated_access()
 
 
 \end{document}
+
+

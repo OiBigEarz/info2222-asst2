@@ -48,15 +48,13 @@ Sign up page, pretty much the same as login.
             });
         }
 
-
-        async function storePrivateKey(username, privateKeyBase64) {
-            const db = await initDatabase();  // Ensuring the database is ready
-            const transaction = db.transaction(["keys"], "readwrite");
-            const store = transaction.objectStore("keys");
-            store.put({username: username, privateKey: privateKeyBase64});
+        async function deriveSalt(username) {
+            const encoder = new TextEncoder();
+            const hashBuffer = await window.crypto.subtle.digest('SHA-256', encoder.encode(username));
+            return new Uint8Array(hashBuffer).slice(0, 16);  // Using a part of hash as salt
         }
 
-        async function deriveKey(password) {
+        async function deriveKey(password, salt) {
             const encoder = new TextEncoder();
             const keyMaterial = await window.crypto.subtle.importKey(
                 "raw",
@@ -65,7 +63,6 @@ Sign up page, pretty much the same as login.
                 false,
                 ["deriveBits", "deriveKey"]
             );
-            const salt = window.crypto.getRandomValues(new Uint8Array(16));
             const key = await window.crypto.subtle.deriveKey(
                 {
                     name: "PBKDF2",
@@ -78,49 +75,70 @@ Sign up page, pretty much the same as login.
                 true,
                 ["encrypt", "decrypt"]
             );
-            return { key, salt };
+            return key;
+        }
+
+        async function storePrivateKey(username, privateKeyBase64) {
+            const db = await initDatabase();  // Ensure the database is ready
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(["keys"], "readwrite");
+                const store = transaction.objectStore("keys");
+                const request = store.put({ username: username, privateKey: privateKeyBase64 });
+                request.onsuccess = function() {
+                    console.log("Private key stored successfully for", username);
+                    resolve();
+                };
+                request.onerror = function(event) {
+                    console.error("Error storing private key:", event.target.error);
+                    reject(event.target.error);
+                };
+            });
         }
 
         async function signup() {
             let username = $("#username").val();
             let password = $("#password").val();
 
-            // Derive AES key from password and generate salt
-            const { key, salt } = await deriveKey(password);
-            const keyExported = await window.crypto.subtle.exportKey("raw", key);
-            const keyBase64 = btoa(String.fromCharCode(...new Uint8Array(keyExported)));
-            const saltBase64 = btoa(String.fromCharCode(...salt));
+            // Derive salt deterministically from the username
+            const salt = await deriveSalt(username);
+            console.log("Salt derived from username:", salt);
 
-            // RSA key pair generation and handling remains the same
-            let keyPair = await window.crypto.subtle.generateKey({
-                name: "RSA-OAEP",
-                modulusLength: 2048,
-                publicExponent: new Uint8Array([1, 0, 1]),
-                hash: {name: "SHA-256"},
-            }, true, ["encrypt", "decrypt"]);
+            // Derive AES key from password and salt for symmetric encryption
+            const aesKey = await deriveKey(password, salt);
+            const aesKeyExported = await window.crypto.subtle.exportKey("raw", aesKey);
+            const aesKeyBase64 = btoa(String.fromCharCode(...new Uint8Array(aesKeyExported)));
+            console.log("AES Key exported in Base64:", aesKeyBase64);
 
-            const exportedPrivateKey = await window.crypto.subtle.exportKey("pkcs8", keyPair.privateKey);
-            const privateKeyBase64 = btoa(String.fromCharCode(...new Uint8Array(exportedPrivateKey)));
-            await storePrivateKey(username, privateKeyBase64);
+            // Generate RSA key pair for asymmetric encryption
+            const rsaKeyPair = await window.crypto.subtle.generateKey(
+                { name: "RSA-OAEP", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: { name: "SHA-256" }},
+                true,
+                ["encrypt", "decrypt"]
+            );
+            const rsaPrivateKeyExported = await window.crypto.subtle.exportKey("pkcs8", rsaKeyPair.privateKey);
+            const rsaPrivateKeyBase64 = btoa(String.fromCharCode(...new Uint8Array(rsaPrivateKeyExported)));
+            const rsaPublicKeyExported = await window.crypto.subtle.exportKey("spki", rsaKeyPair.publicKey);
+            const rsaPublicKeyBase64 = btoa(String.fromCharCode(...new Uint8Array(rsaPublicKeyExported)));
 
-            let exportedPublicKey = await window.crypto.subtle.exportKey("spki", keyPair.publicKey);
-            let publicKeyBase64 = btoa(String.fromCharCode(...new Uint8Array(exportedPublicKey)));
+            console.log("RSA Public Key exported in Base64:", rsaPublicKeyBase64);
 
-            let hashedPassword = CryptoJS.SHA256(password).toString(); // Ensure server never knows the real password
+            // Store RSA private key locally
+            await storePrivateKey(username, rsaPrivateKeyBase64);
 
-            // Corrected handling of the response to expect a JSON payload
-            let signupURL = "{{ url_for('signup_user') }}";
+            // Hash the password to send to the server for user authentication
+            let hashedPassword = CryptoJS.SHA256(password).toString();
+
+            // Send signup data to the server
             try {
-                let response = await axios.post(signupURL, {
+                let response = await axios.post("{{ url_for('signup_user') }}", {
                     username: username,
-                    password: hashedPassword, // Send hashed password
-                    public_key: publicKeyBase64,
-                    salt: saltBase64  // Send the salt to the server
+                    password: hashedPassword, // Send hashed password for security
+                    public_key: rsaPublicKeyBase64,
+                    salt: btoa(String.fromCharCode(...salt)) // Send salt for AES key derivation
                 });
 
                 if (response.data.signup) {
-                    // Assuming the response includes a redirect URL upon successful signup
-                    window.location.href = '/home'; // Redirect to home or another path as required
+                    window.location.href = '/home'; // Redirect to home on successful signup
                 } else {
                     alert("Signup failed: " + response.data.msg);
                 }
@@ -129,6 +147,7 @@ Sign up page, pretty much the same as login.
                 alert("Signup error: " + (error.response ? error.response.data.msg : "Server error"));
             }
         }
+
 
         function isValidURL(string) {
             try {

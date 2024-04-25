@@ -39,6 +39,7 @@ class Message(Base):
     sender = Column(String, ForeignKey('user.username'))
     receiver = Column(String, ForeignKey('user.username'))
     message = Column(Text)  # This will store the encrypted message text
+    iv = Column(String)  # Store the IV used in encryption
     timestamp = Column(DateTime, default=datetime.utcnow)  # Automatically sets the timestamp
 
     # Define relationships to the User model for easier access to user objects
