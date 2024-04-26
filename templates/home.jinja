@@ -115,6 +115,7 @@
                 const db = event.target.result;
                 if (!db.objectStoreNames.contains("keys")) {
                     db.createObjectStore("keys", { keyPath: "username" });
+                    hmacObj = db.createObjectStore("Hmackey");
                     console.log("Database upgraded and 'keys' object store created.");
                 } 
             };
@@ -130,9 +131,6 @@
             };
         });
     }
-
-
-
 
     $(document).ready(() => {
         // room_id is undefined if the user hasn't joined a room
@@ -156,6 +154,29 @@
 
     // initializes the socket
     const socket = io();
+
+    // Generate HMAC Key at the beginning of the session
+    async function generateHMAC() {
+        try {
+            let Hkey = await window.crypto.subtle.generateKey(
+            {
+                name: "HMAC",
+                hash: { name: "SHA-256" },
+            },
+                true,
+                ["sign", "verify"],
+            );
+            const exportHkey = await window.crypto.subtle.exportKey("raw", Hkey)
+            const exportHkeyBase64 = btoa(String.fromCharCode.apply(null, [...new Uint8Array(exportHkey)]));
+            localStorage.setItem("Hkey", exportHkeyBase64);
+
+        } catch (error) {
+            console.error("HMAC Key Generation Error: ", error);
+            return null; 
+        }
+    }
+    generateHMAC();
+
 
     // Function to load private key from IndexedDB
     async function loadPrivateKey(username) {
@@ -191,6 +212,19 @@
             console.error("Invalid Base64 string: ", str);
             return false;
         }
+    }
+
+    function str2ab(str) {
+        const buf = new ArrayBuffer(str.length);
+        const bufView = new Uint8Array(buf);
+        for (let i = 0, strLen = str.Length; i < strLen; i++) {
+            bufView[i] = str.charCodeAt(i);
+        }
+        return buf;
+    }
+
+    function b642ab(base64str) {
+        return Uint8Array.from(window.atob(base64str), c => c.charCodeAt(0));
     }
 
     async function decryptMessage(encryptedMessage) {
@@ -234,37 +268,53 @@
         }
     }
 
-    async function HmacVerify(message, signature) {
-        const uArray = str => new Uint8Array([...unescape(encodeURIComponent(str))].map(c => c.charCodeAt(0)));
-        const m = uArray(message)            
-        const sig = uArray(signature)            
-        let key8arr = new TextEncoder().encode(sessionStorage.getItem("HKey"));
-        const importedHMACKey = await window.crypto.subtle.importKey(
-            "raw",
-            key8arr,
-            {
-                name: "HMAC", 
-                hash: {name: "SHA-256"}
-            },
+async function verify(message) {
+    try {
+        let encMessage = new TextEncoder().encode(message);
+
+        let sig = localStorage.getItem("Signature");
+        let key = localStorage.getItem("Hkey");
+
+        console.log("Verify Signature", b642ab(sig));
+        console.log("Verify Key", b642ab(key));
+
+        const importHkey = await crypto.subtle.importKey(
+            'raw',
+            b642ab(key),
+            {name: 'HMAC',
+            hash: {
+                name: 'SHA-256'
+            }},
             true,
-            ["verify"]
+            ['verify']
         );
 
         let result = await window.crypto.subtle.verify(
             "HMAC",
-            importedHMACKey,
-            sig,
-            m
+            importHkey,
+            b642ab(sig),
+            encMessage
         );
-        return result;
-    };
 
-    
+        if(result) {
+            console.log("Verified True!")        //let keyArrayBuffer = Uint8Array.from(window.atob(key), c => c.charCodeAt(0));
+
+            return true;
+        } else {
+            console.log("Verified False!")
+            return false;
+        }
+    } catch (error) {
+        console.error("Verification Error: ", error);
+        return null; 
+    }
+};   
 
     // Modify the existing incoming message handler to decrypt messages
     socket.on("incoming", async (data, color = "black") => {
+        console.log("Received message data:", data);  // Log the raw data for debugging.
 
-        let messageToDisplay = "";
+        let messageToDisplay = "Hi how are you";
 
         if (typeof data === 'string') {
             messageToDisplay = data;  // Handle system messages or notifications directly
@@ -272,7 +322,8 @@
             if (data.username !== username) {  // Check if the message is from another user
                 if (color === "black") {  // Assume "black" color means it needs decryption
                     const decryptedMessage = await decryptMessage(data.message);
-                    const validateAuth = await HmacVerify(data.message, decryptedMessage);
+                    const verifyMessage = await verify(decryptedMessage);
+                    console.log("After waiting, we get the boolean, ", verifyMessage);
                     messageToDisplay = `${data.username}: ${decryptedMessage || "Decryption error"}`;
                 } else {
                     messageToDisplay = `${data.username}: ${data.message}`;
@@ -292,13 +343,13 @@
     async function fetchPublicKey(username) {
         const url = `/get-public-key/${username}`;
         try {
-            console.log("Fetching public key for username: ", username);
+            //console.log("Fetching public key for username: ", username);
             const response = await fetch(url);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             const data = await response.json();
-            console.log("Public key data received: ", data.public_key);
+            //console.log("Public key data received: ", data.public_key);
             const publicKey = await window.crypto.subtle.importKey(
                 "spki",
                 new Uint8Array(atob(data.public_key).split('').map(char => char.charCodeAt(0))),
@@ -316,55 +367,167 @@
         }
     }
 
+    // Function to Encrypt Message History
+    async function encryptMessageHistory(message, keyBase64) {
+        const key = await importKeyFromBase64(keyBase64);
+        const iv = window.crypto.getRandomValues(new Uint8Array(12)); // Generate a random IV
+        const encryptedContent = await window.crypto.subtle.encrypt(
+            { name: "AES-GCM", iv: iv },
+            key,
+            new TextEncoder().encode(message)
+        );
+        return {
+            iv: btoa(String.fromCharCode(...iv)),
+            encryptedContent: btoa(String.fromCharCode(...new Uint8Array(encryptedContent)))
+        };
+    }
+
+    // Function to Decrypt Message History
+    async function decryptMessageHistory(encryptedMessage, ivBase64, keyBase64) {
+        //console.log("Before decryption:", { encryptedMessage, ivBase64, keyBase64 });
+
+        if (!isBase64(encryptedMessage) || !isBase64(ivBase64) || !isBase64(keyBase64)) {
+            console.error('Invalid Base64 encoding found in one of the parameters');
+            return 'Decoding Error: Invalid Base64';
+        }
+
+        try {
+            const key = await importKeyFromBase64(keyBase64);
+            const iv = Uint8Array.from(atob(ivBase64), c => c.charCodeAt(0));
+            const encryptedContent = Uint8Array.from(atob(encryptedMessage), c => c.charCodeAt(0));
+
+            const decryptedContent = await window.crypto.subtle.decrypt(
+                { name: "AES-GCM", iv: iv },
+                key,
+                encryptedContent
+            );
+
+            const decodedText = new TextDecoder().decode(decryptedContent);
+            //console.log("Decrypted Text:", decodedText);
+            return decodedText;
+        } catch (error) {
+            console.error("Decryption process error:", error);
+            return 'Decryption Failed';
+        }
+    }
+
+    
+    function isBase64(str) {
+        const base64Regex = /^(?:[A-Za-z0-9+\/]{4})*(?:[A-Za-z0-9+\/]{2}==|[A-Za-z0-9+\/]{3}=)?$/;
+        return base64Regex.test(str);
+    }
+
+
+    // Function to Import Key from Base64 (used in both encrypt and decrypt)
+    async function importKeyFromBase64(keyBase64) {
+        //console.log(keyBase64)
+        const keyBytes = Uint8Array.from(atob(keyBase64), c => c.charCodeAt(0));
+        // Ensure the key length is 32 bytes (256 bits)
+        if (keyBytes.length !== 32) {
+            console.error("Key length is not 256 bits: ", keyBytes.length * 8);
+            throw new Error("AES key length must be 256 bits");
+        }
+        return window.crypto.subtle.importKey(
+            "raw",
+            keyBytes,
+            { name: "AES-GCM", length: 256 },
+            true, // Extractable
+            ["encrypt", "decrypt"] // Key usages
+        );
+    }
+
 
     async function send() {
         const receiver = $("#receiver").val();
         const message = $("#message").val();
         $("#message").val("");  // Clear the input after sending the message
 
+        // Fetch public key of the receiver
         const publicKey = await fetchPublicKey(receiver);
         if (!publicKey) {
             alert('Could not fetch public key for encryption');
             return;
         }
 
+        await sign(message);
+
+        // Encrypt the message with the receiver's public key
         const encryptedMessage = await encryptMessage(publicKey, message);
 
-        var sigHmac = await generateHmac(encryptedMessage)
+        if (encryptedMessage) {
+            //console.log("Encrypted message sent: ", encryptedMessage);
+            // Emitting the message via socket for real-time communication
+            // Display the original message on the sender's side
+            add_message(`${username}: ${message}`, "grey");
+            socket.emit("send", username, encryptedMessage, room_id);
 
-        if (encryptedMessage && sigHmac) {
-            console.log("HMAC Generated: ", sigHmac);
-            console.log("Encrypted message sent: ", encryptedMessage);
-            add_message(`${username}: ${message}`, "grey"); // Display the original message directly
-            socket.emit("send", username, encryptedMessage, sigHmac, room_id);
+            console.log("Emitting message:", {
+                username: username,
+                message: encryptedMessage,
+                room_id: room_id
+            });
+
+            // Store the encrypted message in the database
+            //console.log("Retrieved key from storage:", sessionStorage.getItem("key"));
+            const { encryptedContent, iv } = await encryptMessageHistory(message, sessionStorage.getItem("key"));
+            //console.log("Stored key:", sessionStorage.getItem("key"));
+
+            $.ajax({
+                url: '/send-message',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    sender: username,
+                    receiver: receiver,
+                    encryptedMessage: encryptedMessage,
+                    iv: iv,
+                    encryptedContent: encryptedContent
+                }),
+                success: function(response) {
+                    console.log("Message stored successfully.");
+                },
+                error: function(jqXHR, textStatus) {
+                    console.error("Failed to send message for storage:", textStatus);
+                    //alert("Failed to store message history.");
+                }
+            });
         } else {
             console.error("Failed to encrypt message");
         }
     }
 
-    async function generateHmac(message) {
+    async function sign(message) {
         try {
-            const uArray = str => new Uint8Array([...unescape(encodeURIComponent(str))].map(c => c.charCodeAt(0)));
-            const m = uArray(message)            
-            let Hkey = await window.crypto.subtle.generateKey(
-                {
-                  name: "HMAC",
-                  hash: { name: "SHA-512" },
-                },
-                true,
-                ["sign", "verify"],
-              );
-              
-            const signature = window.crypto.subtle.sign(
-                "HMAC",
-                Hkey,
-                m 
-            )
-            const exportedHKey = await window.crypto.subtle.exportKey("raw", Hkey);
-            let stringKey = new TextDecoder().decode(exportedHKey);
-            sessionStorage.setItem("HKey", stringKey)
+            let encMessage = new TextEncoder().encode(message);
 
-            return signature;
+            let key = localStorage.getItem("Hkey");
+            //let keyArrBuffer = Uint8Array.from(atob(key), c => c.charCodeAt(0));
+
+            console.log("Sign Key", b642ab(key))
+
+            const importHkey = await crypto.subtle.importKey(
+                'raw',
+                b642ab(key),
+                {name: 'HMAC',
+                hash: {
+                    name: 'SHA-256'
+                }},
+                true,
+                ['sign']
+            );
+
+            const signature = await window.crypto.subtle.sign(
+                "HMAC",
+                importHkey,
+                encMessage
+            );
+            const signatureBase64 = btoa(String.fromCharCode.apply(null, [...new Uint8Array(signature)]));
+
+            localStorage.setItem("Signature", signatureBase64);
+            //console.log("Message: ", encMessage);
+            //console.log("Imported Key", importHkey);
+            //console.log("Key get", keyArrBuffer);
+            //console.log("Signature", signatureBase64);
 
         } catch (error) {
             console.error("HMAC generation error: ", error);
@@ -408,7 +571,7 @@
 
         // pass in the receiver of our message to the server
         // as well as the current user's username
-        socket.emit("join", username, receiver, (res) => {
+        socket.emit("join", username, receiver, async (res) => {
             // res is a string with the error message if the error occurs
             // this is a pretty bad way of doing error handling, but watevs
             if (typeof res != "number") {
@@ -420,25 +583,59 @@
             room_id = res;
             Cookies.set("room_id", room_id);
 
+            // Fetch and display message history after joining the room
+            await fetchAndDisplayMessageHistory(receiver);
+
             // now we'll show the input box, so the user can input their message
             $("#chat_box").hide();
             $("#input_box").show();
         });
-     
     }
 
-    // Helper function to check if a username is in the friends list
-    function isFriend(receiver) {
-        var isFriend = false;
-        $('li').each(function() {
-            // Update to check against the text, ignoring the button
-            var listItemText = $(this).clone().children().remove().end().text().trim();
-            if (listItemText === receiver) {
-                isFriend = true;
+    // Function to fetch message history from the server
+    async function fetchAndDisplayMessageHistory(receiver) {
+        try {
+            const response = await fetch(`/get-messages/${username}/${receiver}`);
+            if (!response.ok) throw new Error('Failed to fetch messages');
+            
+            const messages = await response.json();
+            console.log("Messages received:", messages); // Log to inspect the data structure
+
+            for (const message of messages) {
+                console.log("Individual message fetched:", message);
+                if (message.encryptedMessage && message.iv && sessionStorage.getItem("key")) {
+                    const decryptedMessage = await decryptMessageHistory(message.encryptedMessage, message.iv, sessionStorage.getItem("key"));
+                    add_message(`${message.sender}: ${decryptedMessage}`, "grey");
+                } else {
+                    console.error('Message data incomplete or missing:', message);
+                    add_message(`Error: Message data incomplete`, "red");
+                }
             }
-        });
-        return isFriend;
+        } catch (error) {
+            console.error('Failed to fetch or process message history:', error);
+            //alert('Could not load message history.');
+        }
     }
+
+    // Function to display message history in the UI
+    async function displayMessageHistory(messages) {
+        for (const message of messages) {
+            const decryptedMessage = await decryptMessageHistory(message.encryptedMessage, message.iv, sessionStorage.getItem("key"));
+            add_message(`${message.sender}: ${decryptedMessage}`, "grey"); // Assuming sender's name should be displayed
+        }
+    }
+        // Helper function to check if a username is in the friends list
+        function isFriend(receiver) {
+            var isFriend = false;
+            $('li').each(function() {
+                // Update to check against the text, ignoring the button
+                var listItemText = $(this).clone().children().remove().end().text().trim();
+                if (listItemText === receiver) {
+                    isFriend = true;
+                }
+            });
+            return isFriend;
+        }
 
     // function when the user clicks on "Leave Room"
     // emits a "leave" event, telling the server that we want to leave the room

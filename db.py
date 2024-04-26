@@ -98,8 +98,12 @@ def insert_message(sender_username, receiver_username, message, iv):
         session.add(new_message)
         session.commit()
 
-def get_messages_for_user(username):
+
+def get_messages_between_users(sender, receiver):
     with Session(engine) as session:
-        # Retrieve all messages where the user is the sender or receiver
-        messages = session.query(Message).filter((Message.sender == username) | (Message.receiver == username)).all()
+        # Retrieve messages where the current user is either the sender or the receiver
+        messages = session.query(Message).filter(
+            ((Message.sender == sender) & (Message.receiver == receiver)) |
+            ((Message.receiver == sender) & (Message.sender == receiver))
+        ).order_by(Message.timestamp).all()
         return messages
