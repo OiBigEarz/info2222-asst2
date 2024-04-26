@@ -2,6 +2,8 @@
 \usepackage{listings}
 \usepackage{xcolor}
 \usepackage{graphicx}
+\usepackage{float}
+
 % Define colors for syntax highlighting
 \definecolor{codegreen}{rgb}{0,0.6,0}
 \definecolor{codegray}{rgb}{0.5,0.5,0.5}
@@ -30,7 +32,7 @@
 \lstset{style=mystyle}
 
 \title{Info2222 Security Assignment Report}
-\author{530317166, 510460215}
+\author{SIDs: 530317166, 510460215}
 \date{\today}
 
 \begin{document}
@@ -39,23 +41,22 @@
 
 \section*{Contribution Summary}
 
-\subsection{530317166}
+\subsection*{530317166}
 Student Ian/530317166 did the following
 \begin{itemize}
     \item User login
     \item Friends feature
     \item Chatroom's asymmetric key generation encryption and decryption. 
-    \item Message History
+    \item Message History 
     \item Hash and Salt
     \item Authentication
 \end{itemize}
 
-\subsection{510460215}
+\subsection*{510460215}
 Student Scott/510460215 did the following
 \begin{itemize}
     \item Chatroom's Hmac 
     \item HTTPS
-    \item tba
 \end{itemize}
 
 \section{User Login Security}
@@ -437,6 +438,108 @@ async function verify(message) {
 };   
 \end{lstlisting}
 
+\section{Message History}
+\textit{Contributed by Ian}
+
+\subsection*{Symmetric Key Generation from Hashed Password and Salt}
+Upon user registration, a symmetric key is generated using a password-derived key derivation function (PBKDF2). This symmetric key is then used for AES encryption and decryption of messages stored in the database. Below is a snippet that shows the derivation of the salt from the user's username and the generation of the symmetric key using this salt and the user password:
+
+\begin{lstlisting}[language=Java]
+// Function to derive salt from the username
+async function deriveSalt(username) {
+    const encoder = new TextEncoder();
+    const hashBuffer = await window.crypto.subtle.digest('SHA-256', encoder.encode(username));
+    return new Uint8Array(hashBuffer).slice(0, 16); // Using a part of the hash as salt
+}
+
+// Function to derive the AES encryption key from the password and salt
+async function deriveKey(password, salt) {
+    const encoder = new TextEncoder();
+    const keyMaterial = await window.crypto.subtle.importKey(
+        "raw",
+        encoder.encode(password),
+        "PBKDF2",
+        false,
+        ["deriveBits", "deriveKey"]
+    );
+    return window.crypto.subtle.deriveKey(
+        {
+            name: "PBKDF2",
+            salt: salt,
+            iterations: 100000,
+            hash: "SHA-256"
+        },
+        keyMaterial,
+        { name: "AES-GCM", length: 256 },
+        true,
+        ["encrypt", "decrypt"]
+    );
+}
+\end{lstlisting}
+
+\subsection*{Securing Message History}
+Messages are encrypted before being sent over the network and stored in the database. The AES-GCM mode is used for this purpose, which also provides authenticity and integrity verification aside from encryption. Here is how messages are encrypted and decrypted:
+
+\begin{lstlisting}[language=Java]
+// Encrypting message history
+async function encryptMessageHistory(message, keyBase64) {
+    const key = await importKeyFromBase64(keyBase64);
+    const iv = window.crypto.getRandomValues(new Uint8Array(12)); // Generate a random IV
+    const encryptedContent = await window.crypto.subtle.encrypt(
+        { name: "AES-GCM", iv: iv },
+        key,
+        new TextEncoder().encode(message)
+    );
+    return {
+        iv: btoa(String.fromCharCode(...iv)),
+        encryptedContent: btoa(String.fromCharCode(...new Uint8Array(encryptedContent)))
+    };
+}
+
+// Decrypting message history
+async function decryptMessageHistory(encryptedMessage, ivBase64, keyBase64) {
+    const key = await importKeyFromBase64(keyBase64);
+    const iv = Uint8Array.from(atob(ivBase64), c => c.charCodeAt(0));
+    const encryptedContent = Uint8Array.from(atob(encryptedMessage), c => c.charCodeAt(0));
+    const decryptedContent = await window.crypto.subtle.decrypt(
+        { name: "AES-GCM", iv: iv },
+        key,
+        encryptedContent
+    );
+    return new TextDecoder().decode(decryptedContent);
+}
+\end{lstlisting}
+
+\subsection*{Fetching Message History}
+When fetching the message history, the application makes a secure request to the server. This request is authenticated and encrypted to prevent interception and unauthorized access. Below is a  implementation of how message history is fetched from the server:
+
+\begin{lstlisting}[language=Java]
+// Function to fetch and display message history
+    async function fetchAndDisplayMessageHistory(receiver) {
+        try {
+            const response = await fetch(`/get-messages/${username}/${receiver}`);
+            if (!response.ok) {
+                throw new Error(`Failed to fetch messages with status: ${response.status}`);
+            }
+
+            const messages = await response.json();
+            console.log("Messages received:", messages); // Log all messages to see what's fetched
+                try {
+                    const decryptedMessage = await decryptMessageHistory(message.encryptedMessage, message.iv, sessionStorage.getItem("key"));
+                    add_message(`${message.sender}: ${decryptedMessage}`, "grey");
+                } catch (decryptionError) {
+                    console.error("Decryption failed:", decryptionError);
+                    add_message("Decryption error.", "red");
+                }
+            }
+        } catch (error) {
+            console.error('Failed to fetch or process message history:', error);
+            alert(`Could not load message history: ${error.message}`);
+        }
+    }
+\end{lstlisting}
+
+
 \section{Hash and Salt}
 \textit{Contributed by Ian}
 
@@ -524,7 +627,7 @@ server {
 }
 \end{lstlisting}
 
-\begin{figure}
+\begin{figure}[H]
     \centering
     \includegraphics[width=0.5\linewidth]{HTTPS.png}
     \caption{Working HTTPS Connection}
@@ -599,18 +702,11 @@ Specific tests were conducted focusing on authentication:
 \end{enumerate}
 
 \begin{lstlisting}[language=Python]
-# Example of an automated test for route authorization
-import requests
-
-def test_unauthenticated_access():
-    urls = [
-        "http://example.com/api/protected",
-        "http://example.com/api/admin",
-        "http://example.com/api/delete-user"
-    ]
-    for url in urls:
-        response = requests.get(url)
-        assert response.status_code == 401, f"Unauthorized access allowed for {url}"
+    
+    def test_unauthenticated_access_to_protected_route():
+    """ Test access to a protected route without authentication """
+    response = requests.get(f"{BASE_URL}/home")
+    assert response.status_code == 401, "Unauthorized access allowed to home"
 
 test_unauthenticated_access()
 \end{lstlisting}
