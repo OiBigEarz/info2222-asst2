@@ -62,13 +62,19 @@ def signup():
 def signup_user():
     if not request.is_json:
         abort(404)
+
     username = request.json.get("username")
     password = request.json.get("password")
+    account_type = request.json.get("accountType")
+    staff_type = request.json.get("staffType") if account_type == "Staff" else None
 
-    if db.get_user(username) is None:
-        db.insert_user(username, password)
-        return url_for('home', username=username)
-    return "Error: User already exists!"
+    existing_user = db.get_user(username)
+    if existing_user:
+        return "Error: User already exists!"
+
+    db.insert_user(username, password, account_type, staff_type)
+    return url_for('home', username=username)
+
 
 # handler when a "404" error happens
 @app.errorhandler(404)

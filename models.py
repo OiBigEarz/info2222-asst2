@@ -29,6 +29,8 @@ class User(Base):
     # in other words we've mapped the username Python object property to an SQL column of type String 
     username: Mapped[str] = mapped_column(String, primary_key=True)
     password: Mapped[str] = mapped_column(String)
+    account_type = Column(String)  # 'Student' or 'Staff'
+    staff_type = Column(String)    # 'Academic', 'Administrative', 'Admin', or None
     
 
 # stateful counter used to generate the room id
