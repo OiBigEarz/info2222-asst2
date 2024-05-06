@@ -27,7 +27,7 @@ import socket_routes
 # index page
 @app.route("/")
 def index():
-    return render_template("index.jinja")
+    return render_template("login.jinja")
 
 # login page
 @app.route("/login")

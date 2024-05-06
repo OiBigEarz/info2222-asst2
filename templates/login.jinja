@@ -4,13 +4,64 @@
 
 {% extends 'base.jinja' %}
 
-{% block content %} 
-    <h1>Login</h1>
-    <p>Username</p>
-    <input id="username"/>
-    <p>Password</p>
-    <input id="password"  type="password"/>
-    <button onclick="login()">Login</button>
+{% block content %}
+<style>
+    body {
+        background-image: url('{{ url_for('static', filename='images/woodbackground.jpg') }}');
+        background-size: cover;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        font-family: 'Arial', sans-serif;
+    }
+    .login-container {
+        text-align: center;
+        width: 300px;
+    }
+    .login-header {
+        background: rgba(255, 255, 255, 0.8);
+        padding: 10px 20px; /* Reduced padding */
+        margin-bottom: 20px; /* Space between header and inputs */
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    input[type="text"], input[type="password"], button {
+        width: 100%;
+        padding: 10px;
+        margin-bottom: 10px; /* Consistent margin for all inputs and buttons */
+        border: 1px solid #ccc;
+        border-radius: 5px;
+    }
+    input[type="text"], input[type="password"] {
+        background: rgba(255, 255, 255, 0.95); /* Slightly opaque background for inputs */
+    }
+    button {
+        border: none;
+        color: white;
+        font-weight: bold;
+        cursor: pointer;
+    }
+    .login-btn {
+        background-color: #4CAF50; /* Green */
+    }
+    .signup-btn {
+        background-color: #f44336; /* Red */
+        margin-top: 0; /* Reduced space between buttons */
+    }
+</style>
+
+
+<div class="login-container">
+    <div class="login-header">
+        <h1>Login</h1>
+    </div>
+    <input id="username" type="text" placeholder="Username" required/>
+    <input id="password" type="password" placeholder="Password" required/>
+    <button onclick="login()" class="login-btn">Login</button>
+    <button onclick="window.location='{{ url_for('signup') }}'" class="signup-btn">New User? Sign up here!</button>
+</div>
+
 
     <script>
 

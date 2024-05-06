@@ -3,17 +3,101 @@ Sign up page, pretty much the same as login.
 -->
 {% extends 'base.jinja' %}
 
+{% block content %}
+<style>
+    body {
+        background-image: url('{{ url_for('static', filename='images/woodbackground.jpg') }}');
+        background-size: cover;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        font-family: 'Arial', sans-serif;
+    }
+    .signup-container {
+        text-align: center;
+        width: 300px;
+    }
+    .signup-header, .signup-btn-container {
+        background: rgba(255, 255, 255, 0.8);
+        padding: 10px 20px;
+        margin-bottom: 20px; /* Space between header and inputs */
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    input[type="text"], input[type="password"], select, input[type="radio"] + label {
+        width: 100%;
+        padding: 10px;
+        margin-bottom: 10px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+    }
+    input[type="text"], input[type="password"], select {
+        background: rgba(255, 255, 255, 0.95); /* Slightly opaque background for inputs */
+    }
+    button {
+        width: 100%;
+        padding: 10px;
+        border: none;
+        border-radius: 5px;
+        color: white;
+        font-weight: bold;
+        background-color: #4CAF50;
+        cursor: pointer;
+    }
+    input[type="radio"] {
+        display: none; /* Hide the default radio button */
+    }
+    input[type="radio"] + label {
+        display: block;
+        padding: 10px;
+        background-color: #f4f4f4;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        text-align: center;
+        cursor: pointer;
+    }
+    input[type="radio"]:checked + label {
+        background-color: #ddd; /* Highlight the selected label */
+    }
+    .hidden {
+        display: none;
+    }
+</style>
 
-{% block content %} 
-    <h1>Sign Up</h1>
-    <p>Username</p>
-    <input id="username"/>
-    <p>Password</p>
-    <input id="password" type="password"/>
-    <button onclick="signup()">Sign up</button>
+<div class="signup-container">
+    <div class="signup-header">
+        <h1>Sign Up</h1>
+    </div>
+    <input id="username" type="text" placeholder="Username" required/>
+    <input id="password" type="password" placeholder="Password" required/>
 
+    <p>Account Type:</p>
+    <input type="radio" id="student" name="account_type" value="Student" checked onclick="toggleStaffOptions(false)">
+    <label for="student">Student</label>
+    <input type="radio" id="staff" name="account_type" value="Staff" onclick="toggleStaffOptions(true)">
+    <label for="staff">Staff</label>
+
+    <div id="staff_options" class="hidden">
+        <p>Staff Type:</p>
+        <select id="staff_type">
+            <option value="Academic">Academic</option>
+            <option value="Administrative">Administrative</option>
+            <option value="Admin">Admin</option>
+        </select>
+    </div>
+
+    <div class="signup-btn-container">
+        <button onclick="signup()" class="signup-btn">Sign Up</button>
+    </div>
+</div>
+
+    <script src="{{ url_for('static', filename='js/libs/axios.min.js') }}"></script>
     <script>
-         function isValidURL(string) {
+        function toggleStaffOptions(show) {
+            document.getElementById('staff_options').style.display = show ? 'block' : 'none';
+        }
+        function isValidURL(string) {
             if (string.length == 0) {
                 return false;
             }
@@ -25,10 +109,15 @@ Sign up page, pretty much the same as login.
 
         // this function is identical to login(), see login.jinja
         async function signup() {
-            let loginURL = "{{ url_for('signup_user') }}";
-            let res = await axios.post(loginURL, {
+            let accountType = document.querySelector('input[name="account_type"]:checked').value;
+            let staffType = accountType === "Staff" ? document.getElementById('staff_type').value : "";
+
+            let signupURL = "{{ url_for('signup_user') }}";
+            let res = await axios.post(signupURL, {
                 username: $("#username").val(),
-                password: $("#password").val()
+                password: $("#password").val(),
+                accountType: accountType,
+                staffType: staffType
             });
             if (!isValidURL(res.data)) {
                 alert(res.data);
