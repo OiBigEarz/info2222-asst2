@@ -3,98 +3,110 @@
 -->
 {% extends 'base.jinja' %}
 
-
 {% block content %} 
-   <style>
-    nav {
-        border-bottom: 1px solid black;
-        overflow: auto
+<style>
+    body {
+        background-image: url('{{ url_for('static', filename='images/woodbackground.jpg') }}');
+        background-size: cover;
+        font-family: 'Arial', sans-serif;
     }
-
-    #message_box {
-        border: 1px solid black; 
-        height: 400px; 
-        width: 800px; 
-        overflow: auto;
-        padding: 2px;
+    #main-container {
+        display: flex;
+        margin: 20px;
     }
-
-    .text  {
-        margin-top: 2px;
-        margin-bottom: 2px;
+    #article-section {
+        width: 70%;
+        padding: 20px;
+        overflow-y: auto;
     }
-
+    #chat-section {
+        width: 30%;
+        background: rgba(255, 255, 255, 0.9);
+        padding: 20px;
+        height: 90vh; 
+        overflow-y: auto;
+        border-left: 1px solid #ccc;
+    }
+    article {
+        background: #fff;
+        margin-bottom: 10px;
+        padding: 10px;
+        border-radius: 5px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .article-title, .article-content, h2, ul {
+        font-size: 16px;
+        color: #333;
+    }
+    .controls {
+        margin-bottom: 20px;
+        text-align: center;
+    }
+    input, button {
+        padding: 10px;
+        margin: 5px;
+        border-radius: 5px;
+        border: 1px solid #ccc;
+        font-size: 14px;
+    }
+    button {
+        background-color: #4CAF50;
+        color: white;
+        cursor: pointer;
+    }
+    ul {
+        list-style-type: none;
+        padding: 0;
+    }
+    li {
+        padding: 5px;
+        margin-bottom: 5px;
+        background: rgba(255, 255, 255, 0.8);
+        border-radius: 5px;
+    }
 </style>
 
-<!--Navbar, you'll see the username here-->
-<nav style="border-bottom: 1px solid black;">
-    <ol style="float: right">
-        <li style="display:inline-block">Username:  {{ username }} </li>
-    </ol>
-</nav>
+<div id="main-container">
+    <div id="article-section">
+        <h1>Articles</h1>
+        <article>
+            <div class="article-title">Article 1</div>
+            <div class="article-content">Body Content</div>
+        </article>
+        <article>
+            <div class="article-title">Article 2</div>
+            <div class="article-content">Body Content</div>
+        </article>
+    </div>
 
-<h1>Messaging App </h1>
-
-<main>
-    <!-- The messages are displayed here -->
-    <section id="message_box"></section>
-
-    <!-- These part ideally should be a form element, 
-    but I wrote this code a year ago and I don't want to break anything...-->
-    <section id="chat_box">
-        <p class="text">Chat with: </p>
-        <input id="receiver" placeholder="username">
-        <!-- MDN says its bad practice to use the onclick attribute,
-        but we're using it anyways coz its easy :)-->
-        <button onclick="join_room()">Chat</button>
-    </section>
-
-    <!-- The (message) input box is set to display: none initially, 
-    this means the input box is "invisible" initially-->
-    <section id="input_box" style="display: none" >
-        <p class="text">Message: </p>
-        <input id="message" placeholder="message">
-        <button onclick="send()">Send</button>
-        <button onclick="leave()">Leave Room</button>
-    </section>
-
-    <!-- Friends List Section -->
-    <section>
-        <h2>Friends</h2>
-        <ul>
-            {% for friend in friends %}
-            <li>{{ friend }}</li>
-            {% endfor %}
-        </ul>
-    </section>
-
-    <!-- Friend Requests Section -->
-    <section>
-        <h2>Friend Requests</h2>
-        <h3>Received</h3>
-        <ul>
-            {% for request in received_requests %}
-            <li>{{ request.sender }} - <button onclick="acceptFriendRequest({{ request.id }})">Accept</button> <button onclick="rejectFriendRequest({{ request.id }})">Reject</button></li>
-            {% endfor %}
-        </ul>
-        <h3>Sent</h3>
-        <ul>
-            {% for request in sent_requests %}
-            <li>{{ request.receiver }} - Pending</li>
-            {% endfor %}
-        </ul>
-    </section>
-    
-    <!-- Section to Send Friend Requests -->
-    <section>
-        <h2>Send Friend Request</h2>
-        <input id="friend_username" placeholder="Enter username">
-        <button onclick="sendFriendRequest()">Send Friend Request</button>
-    </section>
-
-
-
-</main>
+    <div id="chat-section">
+        <div class="controls">
+            <input id="friend_username" placeholder="Enter username">
+            <button onclick="sendFriendRequest()">Add Friend</button>
+        </div>
+        <section class="friend-list">
+            <h2>Friends</h2>
+            <ul>
+                {% for friend in friends %}
+                <li>{{ friend }} <button>Chat</button> <button>Remove</button></li>
+                {% endfor %}
+            </ul>
+        </section>
+        <section class="friend-requests">
+            <h2>Friend Requests</h2>
+            <ul>
+                {% for request in received_requests %}
+                <li>{{ request.sender }} <button onclick="acceptFriendRequest({{ request.id }})">Accept</button> <button onclick="rejectFriendRequest({{ request.id }})">Reject</button></li>
+                {% endfor %}
+            </ul>
+        </section>
+        <section class="message-groups">
+            <h2>Message Groups</h2>
+            <input placeholder="Enter usernames" />
+            <button>Create Group Chat</button>
+        </section>
+    </div>
+</div>
 
 <script src="/static/js/libs/socket.io.min.js"></script>
 <script>
