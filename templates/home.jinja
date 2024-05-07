@@ -80,31 +80,35 @@
     </div>
 
     <div id="chat-section">
-        <div class="controls">
-            <input id="friend_username" placeholder="Enter username">
-            <button onclick="sendFriendRequest()">Add Friend</button>
+        <!-- Placeholder for dynamic content, initially loads friend management -->
+        <div id="dynamic-content">
+            <!-- Initial content loaded here will be friend management -->
+            <div class="controls">
+                <input id="friend_username" placeholder="Enter username to add">
+                <button onclick="sendFriendRequest()">Add Friend</button>
+            </div>
+            <section class="friend-list">
+                <h2>Friends</h2>
+                <ul>
+                    {% for friend in friends %}
+                    <li>{{ friend }} <button onclick="startChat('{{ friend }}')">Chat</button> <button>Remove</button></li>
+                    {% endfor %}
+                </ul>
+            </section>
+            <section class="friend-requests">
+                <h2>Friend Requests</h2>
+                <ul>
+                    {% for request in received_requests %}
+                    <li>{{ request.sender }} - <button onclick="acceptFriendRequest({{ request.id }})">Accept</button> <button onclick="rejectFriendRequest({{ request.id }})">Reject</button></li>
+                    {% endfor %}
+                </ul>
+            </section>
+            <section class="message-groups">
+                <h2>Message Groups</h2>
+                <input placeholder="Enter usernames" />
+                <button>Create Group Chat</button>
+            </section>
         </div>
-        <section class="friend-list">
-            <h2>Friends</h2>
-            <ul>
-                {% for friend in friends %}
-                <li>{{ friend }} <button>Chat</button> <button>Remove</button></li>
-                {% endfor %}
-            </ul>
-        </section>
-        <section class="friend-requests">
-            <h2>Friend Requests</h2>
-            <ul>
-                {% for request in received_requests %}
-                <li>{{ request.sender }} <button onclick="acceptFriendRequest({{ request.id }})">Accept</button> <button onclick="rejectFriendRequest({{ request.id }})">Reject</button></li>
-                {% endfor %}
-            </ul>
-        </section>
-        <section class="message-groups">
-            <h2>Message Groups</h2>
-            <input placeholder="Enter usernames" />
-            <button>Create Group Chat</button>
-        </section>
     </div>
 </div>
 
@@ -256,6 +260,37 @@
                 alert("Error rejecting friend request: " + xhr.responseText);
             }
         });
+    }
+    
+    function startChat(friendUsername) {
+        // This function will be called when 'Chat' button is clicked
+        // It changes the inner HTML of the dynamic-content div to show the chat interface
+        const chatInterface = `
+            <h2>Chatting with ${friendUsername}</h2>
+            <button onclick="backToFriendsList()">Leave Chat</button>
+            <div id="message_box" style="height: 300px; overflow-y: auto; border: 1px solid #ccc; margin-bottom: 10px;"></div>
+            <input id="message_input" placeholder="Type a message" onkeyup="if(event.keyCode === 13) sendMessage('${friendUsername}')">
+            <button onclick="sendMessage('${friendUsername}')">Send</button>
+        `;
+        document.getElementById('dynamic-content').innerHTML = chatInterface;
+    }
+
+    function backToFriendsList() {
+        // Reloads the original friend management interface
+        location.reload();
+    }
+
+    function sendMessage(friendUsername) {
+        const message = document.getElementById('message_input').value;
+        document.getElementById('message_input').value = ''; // Clear input after sending
+        // Here you would call your socket.emit or other AJAX to send the message
+        // For now, we just append it to our message_box
+        const messageBox = document.getElementById('message_box');
+        const msgElement = document.createElement('p');
+        msgElement.textContent = `You: ${message}`;
+        messageBox.appendChild(msgElement);
+        // Assuming you have a socket.io setup already
+        socket.emit('send_message', { to: friendUsername, message: message });
     }
     
 </script>
