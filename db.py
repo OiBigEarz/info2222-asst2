@@ -6,6 +6,7 @@ database file, containing all the logic to interface with the sql database
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from models import *
+from models import Article, Comment, User
 
 from pathlib import Path
 
@@ -100,4 +101,20 @@ def delete_friendship(username, friend_username):
             session.delete(friendship1)
         if friendship2:
             session.delete(friendship2)
+        session.commit()
+
+def insert_article(username, title, content):
+    with Session(engine) as session:
+        article = Article(title=title, content=content, author_username=username)
+        session.add(article)
+        session.commit()
+
+def get_articles():
+    with Session(engine) as session:
+        return session.query(Article).all()
+
+def insert_comment(username, article_id, content):
+    with Session(engine) as session:
+        comment = Comment(content=content, article_id=article_id, author_username=username)
+        session.add(comment)
         session.commit()

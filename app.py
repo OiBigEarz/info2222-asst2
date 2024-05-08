@@ -8,6 +8,8 @@ from flask import Flask, render_template, request, abort, url_for
 from flask_socketio import SocketIO
 import db
 import secrets
+from flask import jsonify
+
 
 # import logging
 
@@ -161,3 +163,30 @@ def delete_friend():
         return "Friend removed successfully", 200
     except Exception as e:
         return str(e), 500
+
+@app.route('/articles', methods=['POST'])
+def create_article():
+    if not request.is_json:
+        abort(400)
+    title = request.json.get("title")
+    content = request.json.get("content")
+    username = request.json.get("username")
+
+    db.insert_article(username, title, content)
+    return jsonify({"message": "Article created successfully!"}), 201
+
+@app.route('/articles', methods=['GET'])
+def get_articles():
+    articles = db.get_articles()
+    return jsonify([{"title": article.title, "content": article.content, "author": article.author_username} for article in articles])
+
+@app.route('/comments', methods=['POST'])
+def post_comment():
+    if not request.is_json:
+        abort(400)
+    content = request.json.get("content")
+    article_id = request.json.get("article_id")
+    username = request.json.get("username")
+
+    db.insert_comment(username, article_id, content)
+    return jsonify({"message": "Comment added successfully!"}), 201

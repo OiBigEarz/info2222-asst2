@@ -250,6 +250,7 @@
     let room_id = 0;
     let username = "{{ username }}";
     let role = "{{ role }}";
+    document.addEventListener('DOMContentLoaded', fetchArticles);
 
     // when the user presses the "Enter" key inside of the "message box", 
     // the message is sent to the server
@@ -462,50 +463,50 @@ function updateUsernameDisplay() {
 }
 
 function showPostModal() {
-    document.getElementById('post-modal').style.display = 'block';
+    var modal = document.getElementById('post-modal');
+    if (modal) {
+        modal.style.display = 'block';
+    } else {
+        console.error('Modal element not found!');
+    }
 }
 
 function closeModal() {
-    document.getElementById('post-modal').style.display = 'none';
+    var modal = document.getElementById('post-modal');
+    if (modal) {
+        modal.style.display = 'none';
+    } else {
+        console.error('Modal element not found!');
+    }
 }
 
 function submitPost() {
     var title = document.getElementById('post-title').value;
     var content = document.getElementById('post-content').value;
-    // Example placeholders for username and role
-    var username = "{{ username }}"; 
-    var role = "{{ role }}"; // This should come retrieve user role from server
 
-    // Creating new article HTML structure with expand/collapse functionality
-    var newArticleHtml = `<article>
-        <div class='article-title'>${title}</div>
-        <div class='article-content'>${content}</div>
-        <div class='post-user-info'>Posted by: ${username} (${role})</div>
-        <button class="expand-article-btn" onclick="expandArticle(this)">Read More...</button>
-        <div class="comment-section" style="display: none;">
-            <textarea placeholder="Add a comment..."></textarea>
-            <button onclick="submitComment(this)">Comment</button>
-            <button class="close-btn" onclick="collapseArticle(this.parentNode)">X Close</button>
-        </div>
-    </article>`;
-
-    // Targeting the section where articles should be displayed
-    var articleContainer = document.getElementById('article-section');
-    // Create a new element to contain the article HTML
-    var articleElement = document.createElement('div');
-    articleElement.innerHTML = newArticleHtml;
-    var newArticle = articleElement.firstChild;
-
-    // Find the position where the new article should be inserted
-    // This is the element after which new articles should be placed
-    var postButton = document.getElementById('post-article-btn');
-    var modal = document.getElementById('post-modal');
-
-    // Insert the new article right after the modal (which is after the button)
-    articleContainer.insertBefore(newArticle, modal.nextSibling);
-
-    closeModal(); // Close the modal after posting
+    fetch('/articles', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            title: title,
+            content: content,
+            username: "{{ username }}"
+        })
+    })
+    .then(response => {
+        if (response.ok) {
+            fetchArticles(); // Refresh the list of articles
+            closeModal(); // Close the modal after posting
+            return response.json();
+        }
+        throw new Error('Network response was not ok.');
+    })
+    .then(data => console.log('Article posted:', data))
+    .catch(error => console.error('Error posting article:', error));
 }
+
 
 function expandArticle(button) {
     var article = button.parentNode;
@@ -519,25 +520,59 @@ function collapseArticle(commentSection) {
     article.querySelector('.expand-article-btn').style.display = 'block'; // Show the expand button again
 }
 
-function submitComment(button) {
+function submitComment(button, articleId) {
     var commentBox = button.previousElementSibling;
     var comment = commentBox.value;
-    var article = button.closest('article');
-    var username = "{{ username }}"; // Replace with server-side code as needed
-    var role = "{{ role }}"; // Replace with server-side code as needed
+    fetch('/comments', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            content: comment,
+            article_id: articleId,
+            username: "{{ username }}"
+        })
+    })
+    .then(response => {
+        if (response.ok) {
+            commentBox.value = ''; // Reset the comment box
+            return response.json();
+        }
+        throw new Error('Failed to post comment');
+    })
+    .then(data => {
+        console.log('Comment posted:', data);
+        fetchArticles(); // Optionally refresh articles to show new comments
+    })
+    .catch(error => console.error('Error posting comment:', error));
+}
 
-    // Create a div for the comment and style it
-    var commentDiv = document.createElement('div');
-    commentDiv.className = 'comment';
-    commentDiv.textContent = `${username} (${role}): ${comment}`;
-    var commentSection = article.querySelector('.comment-section');
-    if (commentSection.children.length === 1) {
-        commentSection.appendChild(document.createElement('hr')); // Optionally add a separator before first comment
-    }
-    commentSection.appendChild(commentDiv);
 
-    // Reset the comment box
-    commentBox.value = '';
+function fetchArticles() {
+    fetch('/articles')
+    .then(response => response.json())
+    .then(articles => {
+        const articleContainer = document.getElementById('article-section');
+        articleContainer.innerHTML = '<h1>Articles</h1><button id="post-article-btn" onclick="showPostModal()">Post New Article</button>'; // Reset the innerHTML and keep the button
+        
+        articles.forEach(article => {
+            const articleHtml = `
+                <article>
+                    <div class='article-title'>${article.title}</div>
+                    <div class='article-content'>${article.content}</div>
+                    <div class='post-user-info'>Posted by: ${article.author}</div>
+                    <button class="expand-article-btn" onclick="expandArticle(this)">Read More...</button>
+                    <div class="comment-section" style="display: none;">
+                        <textarea placeholder="Add a comment..."></textarea>
+                        <button onclick="submitComment(this, ${article.id})">Comment</button>
+                        <button class="close-btn" onclick="collapseArticle(this.parentNode)">X Close</button>
+                    </div>
+                </article>`;
+            articleContainer.insertAdjacentHTML('beforeend', articleHtml);
+        });
+    })
+    .catch(error => console.error('Error loading articles:', error));
 }
 
 
