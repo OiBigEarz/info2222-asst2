@@ -47,30 +47,21 @@ class Counter():
 class Room():
     def __init__(self):
         self.counter = Counter()
-        # dictionary that maps the username to the room id
-        # for example self.dict["John"] -> gives you the room id of 
-        # the room where John is in
-        self.dict: Dict[str, int] = {}
+        self.rooms: Dict[tuple, int] = {}
 
-    def create_room(self, sender: str, receiver: str) -> int:
-        room_id = self.counter.get()
-        self.dict[sender] = room_id
-        self.dict[receiver] = room_id
-        return room_id
-    
-    def join_room(self,  sender: str, room_id: int) -> int:
-        self.dict[sender] = room_id
+    def get_sorted_users(self, user1, user2):
+        return tuple(sorted([user1, user2]))
 
-    def leave_room(self, user):
-        if user not in self.dict.keys():
-            return
-        del self.dict[user]
+    def create_room(self, user1, user2):
+        key = self.get_sorted_users(user1, user2)
+        if key not in self.rooms:
+            self.rooms[key] = self.counter.get()
+        return self.rooms[key]
 
-    # gets the room id from a user
-    def get_room_id(self, user: str):
-        if user not in self.dict.keys():
-            return None
-        return self.dict[user]
+    def get_room_id(self, user1, user2):
+        key = self.get_sorted_users(user1, user2)
+        return self.rooms.get(key, None)
+
 
 
 class Friendship(Base):

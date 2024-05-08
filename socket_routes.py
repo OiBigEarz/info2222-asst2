@@ -54,37 +54,28 @@ def join(sender_name, receiver_name):
     
     receiver = db.get_user(receiver_name)
     if receiver is None:
-        return "Unknown receiver!"
+        return "Unknown receiver!"  # Consider using `emit` for errors too, if it suits your client handling
     
     sender = db.get_user(sender_name)
     if sender is None:
         return "Unknown sender!"
 
-    room_id = room.get_room_id(receiver_name)
+    # Retrieve or create a consistent room ID for these two users
+    room_id = room.get_room_id(sender_name, receiver_name)
+    if room_id is None:
+        room_id = room.create_room(sender_name, receiver_name)
 
-    # if the user is already inside of a room 
-    if room_id is not None:
-        
-        room.join_room(sender_name, room_id)
-        join_room(room_id)
-        # emit to everyone in the room except the sender
-        emit("incoming", (f"{sender_name} has joined the room.", "green"), to=room_id, include_self=False)
-        # emit only to the sender
-        emit("incoming", (f"{sender_name} has joined the room. Now talking to {receiver_name}.", "green"))
-        return room_id
-
-    # if the user isn't inside of any room, 
-    # perhaps this user has recently left a room
-    # or is simply a new user looking to chat with someone
-    room_id = room.create_room(sender_name, receiver_name)
+    # If the room ID is valid, the user joins the room
     join_room(room_id)
-    # After joining, send the message history to the user
+    emit("incoming", (f"{sender_name} has joined the room. Now talking to {receiver_name}.", "green"), to=room_id)
+
+    # After joining, send the message history to the room
     messages = db.get_messages(room_id)
     for sender, msg in messages:
-        emit("incoming", (f"{sender}: {msg}"))
+        emit("incoming", (f"{sender}: {msg}"), room=room_id)
 
-    emit("incoming", (f"{sender_name} has joined the room. Now talking to {receiver_name}.", "green"), to=room_id)
     return room_id
+
 
 # leave room event handler
 @socketio.on("leave")
