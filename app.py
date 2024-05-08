@@ -88,11 +88,17 @@ def home():
     if username is None:
         abort(404)
 
+    user = db.get_user(username)
+    if user is None:
+        abort(404)  # Or redirect to login
+        
+    role = f"{user.account_type}" if not user.staff_type else f"{user.staff_type}"
+
     # Fetch friends and friend requests
     friends = db.list_friends(username)
     received_requests, sent_requests = db.list_friend_requests(username)
 
-    return render_template("home.jinja", username=username, friends=friends,
+    return render_template("home.jinja", username=username, role=role, friends=friends,
                            received_requests=received_requests, sent_requests=sent_requests)
 
 

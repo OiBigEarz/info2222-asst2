@@ -147,7 +147,7 @@
 <div id="main-container">
 
     <div id="user-info" style="position: absolute; top: 10px; right: 20px;">
-        <span id="username-display"></span> | <span id="role-display"></span>
+        <span id="username-display">User: "{{ username }}"</span> | <span id="role-display">{{ role }}</span>
     </div>
     
     <div id="article-section">
@@ -218,6 +218,7 @@
 <script>
     let room_id = 0;
     let username = "{{ username }}";
+    let role = "{{ role }}";
 
     // when the user presses the "Enter" key inside of the "message box", 
     // the message is sent to the server
@@ -442,7 +443,7 @@ function submitPost() {
     var content = document.getElementById('post-content').value;
     // Example placeholders for username and role
     var username = "{{ username }}"; 
-    var role = 'Student'; // This should come retreive user role from server
+    var role = "{{ role }}"; // This should come retreive user role from server
     
     
     // Creating new article HTML structure
