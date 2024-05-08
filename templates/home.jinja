@@ -64,11 +64,86 @@
         background: rgba(255, 255, 255, 0.8);
         border-radius: 5px;
     }
+
+    .modal {
+        display: none; /* Hidden by default */
+        position: absolute; /* Positioned relative to the #article-section */
+        z-index: 2; /* Sits on top */
+        left: 0;
+        top: 0;
+        width: 100%; /* Full width of the article-section */
+        height: 100%; /* Full height of the article-section */
+        background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+    }
+
+    .modal-content {
+        position: absolute; /* Position it below the button */
+        top: 50px; /* Adjust this value to position the modal below the button */
+        left: 50%;
+        transform: translateX(-50%); /* Center the modal horizontally */
+        background-color: #fefefe;
+        padding: 20px;
+        border: 1px solid #888;
+        width: 80%; /* Relative to the article-section */
+        box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2), 0 6px 20px 0 rgba(0,0,0,0.19);
+        border-radius: 10px;
+    }
+
+    .close {
+        color: #aaa;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+    }
+
+    .close:hover,
+    .close:focus {
+        color: black;
+        text-decoration: none;
+        cursor: pointer;
+    }
+
+    input[type="text"], textarea {
+        width: calc(100% - 22px); /* Full width - padding and border */
+        padding: 10px;
+        margin-top: 8px;
+        margin-bottom: 8px;
+        display: inline-block;
+        border: 1px solid #ccc;
+        box-sizing: border-box;
+        border-radius: 5px;
+    }
+
+    button[type="button"] {
+        background-color: #4CAF50;
+        color: white;
+        padding: 14px 20px;
+        margin: 8px 0;
+        border: none;
+        cursor: pointer;
+        width: 100%;
+        border-radius: 5px;
+    }
 </style>
 
 <div id="main-container">
     <div id="article-section">
         <h1>Articles</h1>
+        <button id="post-article-btn" onclick="showPostModal()">Post New Article</button>
+        <!-- Modal for posting new article -->
+        <div id="post-modal" class="modal">
+            <div class="modal-content">
+                <span class="close" onclick="closeModal()">&times;</span>
+                <form id="post-form">
+                    <input type="text" id="post-title" placeholder="Title" required>
+                    <textarea id="post-content" placeholder="Write your article..." required></textarea>
+                    <button type="button" onclick="submitPost()">Post</button>
+                </form>
+            </div>
+        </div>
+
+
+        <!-- Existing articles will be shown here -->
         <article>
             <div class="article-title">Article 1</div>
             <div class="article-content">Body Content</div>
@@ -324,6 +399,44 @@ function removeFriend(friendUsername) {
         });
     }
 }
+
+function showPostModal() {
+    document.getElementById('post-modal').style.display = 'block';
+}
+
+function closeModal() {
+    document.getElementById('post-modal').style.display = 'none';
+}
+
+function submitPost() {
+    var title = document.getElementById('post-title').value;
+    var content = document.getElementById('post-content').value;
+    
+    // Creating new article HTML structure
+    var newArticleHtml = `<article>
+        <div class='article-title'>${title}</div>
+        <div class='article-content'>${content}</div>
+    </article>`;
+
+    // Targeting the section where articles should be displayed
+    var articleContainer = document.getElementById('article-section');
+    // Create a new element to contain the article HTML
+    var articleElement = document.createElement('div');
+    articleElement.innerHTML = newArticleHtml;
+    var newArticle = articleElement.firstChild;
+
+    // Find the position where the new article should be inserted
+    // This is the element after which new articles should be placed
+    var postButton = document.getElementById('post-article-btn');
+    var modal = document.getElementById('post-modal');
+
+    // Insert the new article right after the modal (which is after the button)
+    articleContainer.insertBefore(newArticle, modal.nextSibling);
+
+    closeModal(); // Close the modal after posting
+}
+
+
 
 </script>
 {% endblock %}
