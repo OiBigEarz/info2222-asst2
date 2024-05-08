@@ -201,6 +201,7 @@
         socket.emit("leave", username, room_id);
         $("#input_box").hide();
         $("#chat_box").show();
+        backToFriendsList(); 
     }
 
     // function to add a message to the message box
@@ -263,7 +264,6 @@
     }
     
     function startChat(friendUsername) {
-
         // Trigger join room directly with the friend's username
         join_room(friendUsername);
 
@@ -271,7 +271,7 @@
         // It changes the inner HTML of the dynamic-content div to show the chat interface
         const chatInterface = `
             <h2>Chatting with ${friendUsername}</h2>
-            <button onclick="backToFriendsList()">Leave Chat</button>
+            <button onclick="leave()">Leave Chat</button>
             <div id="message_box" style="height: 300px; overflow-y: auto; border: 1px solid #ccc; margin-bottom: 10px;"></div>
             <input id="message_input" placeholder="Type a message" onkeyup="if(event.keyCode === 13) sendMessage('${friendUsername}')">
             <button onclick="sendMessage('${friendUsername}')">Send</button>
@@ -294,7 +294,6 @@
 
         const messageBox = document.getElementById('message_box'); //Recieve message box
         const msgElement = document.createElement('p'); //New paragraph
-        msgElement.textContent = `You: ${message}`; //Your message
         messageBox.appendChild(msgElement); //Append to messagebox children
         // Assuming you have a socket.io setup already
         socket.emit("send", friendUsername, message, room_id); //emit
