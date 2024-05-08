@@ -142,7 +142,47 @@
         width: 100%;
         border-radius: 5px;
     }
-</style>
+
+    .comment-section {
+        background-color: #f9f9f9; /* Light grey background to differentiate comments */
+        border: 1px solid #ddd; /* Slight border for definition */
+        padding: 10px;
+        margin-top: 5px;
+        display: none; /* Initially hidden */
+        border-radius: 5px;
+    }
+
+    .comment {
+        font-size: 0.9em;
+        color: #555; /* Darker text for readability */
+        margin-top: 5px;
+        padding: 5px;
+        border-bottom: 1px solid #eee; /* Light line between comments */
+    }
+
+    textarea {
+        width: 95%; /* Slightly less than full width to fit padding */
+        margin: 5px 0; /* Space above and below */
+        padding: 8px; /* Comfortable padding inside textarea */
+        border: 1px solid #ccc; /* Consistent with other inputs */
+        border-radius: 4px; /* Rounded corners */
+    }
+
+    .expand-article-btn, .close-btn {
+        background-color: #4CAF50; /* Green background to stand out */
+        color: white;
+        padding: 8px 16px;
+        margin: 5px;
+        border: none;
+        cursor: pointer;
+        border-radius: 4px;
+    }
+
+    .close-btn {
+        background-color: #f44336; /* Red background for closing action */
+    }
+
+    </style>
 
 <div id="main-container">
 
@@ -166,22 +206,13 @@
         </div>
 
 
-        <!-- Existing articles will be shown here -->
-        <article>
-            <div class="article-title">Article 1</div>
-            <div class="article-content">Body Content</div>
-        </article>
-        <article>
-            <div class="article-title">Article 2</div>
-            <div class="article-content">Body Content</div>
-        </article>
     </div>
 
     <div id="chat-section">
         <!-- Placeholder for dynamic content, initially loads friend management -->
         <div id="dynamic-content">
             <!-- Initial content loaded here will be friend management -->
-            <div class="controls">
+            <div class="message-groups">
                 <input id="friend_username" placeholder="Enter username to add">
                 <button onclick="sendFriendRequest()">Add Friend</button>
             </div>
@@ -443,16 +474,19 @@ function submitPost() {
     var content = document.getElementById('post-content').value;
     // Example placeholders for username and role
     var username = "{{ username }}"; 
-    var role = "{{ role }}"; // This should come retreive user role from server
-    
-    
-    // Creating new article HTML structure
-    
-    // Creating new article HTML structure
+    var role = "{{ role }}"; // This should come retrieve user role from server
+
+    // Creating new article HTML structure with expand/collapse functionality
     var newArticleHtml = `<article>
         <div class='article-title'>${title}</div>
         <div class='article-content'>${content}</div>
         <div class='post-user-info'>Posted by: ${username} (${role})</div>
+        <button class="expand-article-btn" onclick="expandArticle(this)">Read More...</button>
+        <div class="comment-section" style="display: none;">
+            <textarea placeholder="Add a comment..."></textarea>
+            <button onclick="submitComment(this)">Comment</button>
+            <button class="close-btn" onclick="collapseArticle(this.parentNode)">X Close</button>
+        </div>
     </article>`;
 
     // Targeting the section where articles should be displayed
@@ -472,6 +506,40 @@ function submitPost() {
 
     closeModal(); // Close the modal after posting
 }
+
+function expandArticle(button) {
+    var article = button.parentNode;
+    article.querySelector('.comment-section').style.display = 'block';
+    button.style.display = 'none'; // Hide the expand button
+}
+
+function collapseArticle(commentSection) {
+    commentSection.style.display = 'none'; // Only hide the comment section
+    var article = commentSection.parentNode;
+    article.querySelector('.expand-article-btn').style.display = 'block'; // Show the expand button again
+}
+
+function submitComment(button) {
+    var commentBox = button.previousElementSibling;
+    var comment = commentBox.value;
+    var article = button.closest('article');
+    var username = "{{ username }}"; // Replace with server-side code as needed
+    var role = "{{ role }}"; // Replace with server-side code as needed
+
+    // Create a div for the comment and style it
+    var commentDiv = document.createElement('div');
+    commentDiv.className = 'comment';
+    commentDiv.textContent = `${username} (${role}): ${comment}`;
+    var commentSection = article.querySelector('.comment-section');
+    if (commentSection.children.length === 1) {
+        commentSection.appendChild(document.createElement('hr')); // Optionally add a separator before first comment
+    }
+    commentSection.appendChild(commentDiv);
+
+    // Reset the comment box
+    commentBox.value = '';
+}
+
 
 
 
