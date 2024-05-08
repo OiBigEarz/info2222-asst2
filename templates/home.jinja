@@ -165,6 +165,7 @@
         const receiver = $("#receiver").val();
         const message = $("#message").val();
         $("#message").val("");
+        console.log("Sending message:", {username, receiver, message, room_id});
         socket.emit("send", username, receiver, message, room_id);  
     } 
 
@@ -286,18 +287,22 @@
 
     function sendMessage(friendUsername) {
         const message = document.getElementById('message_input').value;
-
-        console.log(message)
         document.getElementById('message_input').value = ''; // Clear input after sending
-        // Here you would call your socket.emit or other AJAX to send the message
-        // For now, we just append it to our message_box
 
-        const messageBox = document.getElementById('message_box'); //Recieve message box
-        const msgElement = document.createElement('p'); //New paragraph
-        messageBox.appendChild(msgElement); //Append to messagebox children
-        // Assuming you have a socket.io setup already
-        socket.emit("send", friendUsername, message, room_id); //emit
+        // Retrieve the username from a global variable or hidden input if not available
+        const username = "{{ username }}";  // If you're using Jinja2 templating, otherwise set this from your logged-in user data
+
+        console.log("Sending message:", { username: username, receiver: friendUsername, message: message, room_id: room_id });
+        
+        // Append the message to the message box for immediate display
+        const messageBox = document.getElementById('message_box');
+        const msgElement = document.createElement('p');
+        messageBox.appendChild(msgElement);
+
+        // Correctly emit the socket event with all required parameters
+        socket.emit("send", username, friendUsername, message, room_id);
     }
+
     
 </script>
 {% endblock %}

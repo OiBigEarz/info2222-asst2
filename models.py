@@ -10,9 +10,10 @@ Prisma docs also looks so much better in comparison
 or use SQLite, if you're not into fancy ORMs (but be mindful of Injection attacks :) )
 '''
 
-from sqlalchemy import Column, Integer, String, ForeignKey, Enum
+from sqlalchemy import Column, Integer, String, ForeignKey, Enum, DateTime, Boolean
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from typing import Dict
+from datetime import datetime
 
 # data models
 class Base(DeclarativeBase):
@@ -95,4 +96,16 @@ class FriendRequest(Base):
     sender_user = relationship("User", foreign_keys=[sender])
     receiver_user = relationship("User", foreign_keys=[receiver])
 
+class Message(Base):
+    __tablename__ = 'message'
     
+    id = Column(Integer, primary_key=True)
+    sender = Column(String, ForeignKey('user.username'))
+    receiver = Column(String, ForeignKey('user.username'))
+    room_id = Column(Integer)
+    text = Column(String)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+
+    sender_user = relationship("User", foreign_keys=[sender])
+    receiver_user = relationship("User", foreign_keys=[receiver])
+

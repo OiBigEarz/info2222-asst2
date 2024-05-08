@@ -43,7 +43,8 @@ def disconnect():
 
 # send message event handler
 @socketio.on("send")
-def send(username, message, room_id):
+def send(username, receiver, message, room_id):
+    db.insert_message(username, receiver, room_id, message)
     emit("incoming", (f"{username}: {message}"), to=room_id)
     
 # join room event handler
@@ -77,6 +78,11 @@ def join(sender_name, receiver_name):
     # or is simply a new user looking to chat with someone
     room_id = room.create_room(sender_name, receiver_name)
     join_room(room_id)
+    # After joining, send the message history to the user
+    messages = db.get_messages(room_id)
+    for sender, msg in messages:
+        emit("incoming", (f"{sender}: {msg}"))
+
     emit("incoming", (f"{sender_name} has joined the room. Now talking to {receiver_name}.", "green"), to=room_id)
     return room_id
 

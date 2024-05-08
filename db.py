@@ -81,3 +81,13 @@ def list_friend_requests(username: str):
         ).all()
         return received_requests, sent_requests
 
+def insert_message(sender_username, receiver_username, room_id, text):
+    with Session(engine) as session:
+        message = Message(sender=sender_username, receiver=receiver_username, room_id=room_id, text=text)
+        session.add(message)
+        session.commit()
+
+def get_messages(room_id):
+    with Session(engine) as session:
+        messages = session.query(Message).filter_by(room_id=room_id).order_by(Message.timestamp.asc()).all()
+        return [(message.sender, message.text) for message in messages]
