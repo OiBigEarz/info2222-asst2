@@ -27,6 +27,24 @@
         overflow-y: auto;
         border-left: 1px solid #ccc;
     }
+
+    #user-info {
+        text-align: center;
+        color: #FFF; /* White text color */
+        padding: 10px;
+        border-radius: 8px;
+        background-color: rgba(0, 0, 0, 0.6); /* Semi-transparent black background */
+        position: absolute;
+        right: 20px;
+        top: 20px;
+    }
+
+    .post-user-info {
+        font-size: 0.9em;
+        color: #666;
+        margin-top: 10px;
+    }
+
     article {
         background: #fff;
         margin-bottom: 10px;
@@ -127,6 +145,11 @@
 </style>
 
 <div id="main-container">
+
+    <div id="user-info" style="position: absolute; top: 10px; right: 20px;">
+        <span id="username-display"></span> | <span id="role-display"></span>
+    </div>
+    
     <div id="article-section">
         <h1>Articles</h1>
         <button id="post-article-btn" onclick="showPostModal()">Post New Article</button>
@@ -194,6 +217,7 @@
 <script src="/static/js/libs/socket.io.min.js"></script>
 <script>
     let room_id = 0;
+    let username = "{{ username }}";
 
     // when the user presses the "Enter" key inside of the "message box", 
     // the message is sent to the server
@@ -212,6 +236,7 @@
     })
 
     $(document).ready(() => {
+        updateUsernameDisplay();
         // room_id is undefined if the user hasn't joined a room
         // we early return in this case
         if (Cookies.get("room_id") == undefined) {
@@ -223,12 +248,11 @@
         $("#chat_box").hide();
         $("#input_box").show();
         room_id = parseInt(Cookies.get("room_id"));
+        
     })
     
     // Here's the Socket IO part of the code
     // things get a bit complicated here so brace yourselves :P
-    let username = "{{ username }}";
-
     Cookies.set('username', username);
 
     // initializes the socket
@@ -400,6 +424,11 @@ function removeFriend(friendUsername) {
     }
 }
 
+// Function to update the username display
+function updateUsernameDisplay() {
+    document.getElementById('username-display').innerText = `User: ${username}`;
+}
+
 function showPostModal() {
     document.getElementById('post-modal').style.display = 'block';
 }
@@ -411,11 +440,18 @@ function closeModal() {
 function submitPost() {
     var title = document.getElementById('post-title').value;
     var content = document.getElementById('post-content').value;
+    // Example placeholders for username and role
+    var username = "{{ username }}"; 
+    var role = 'Student'; // This should come retreive user role from server
+    
+    
+    // Creating new article HTML structure
     
     // Creating new article HTML structure
     var newArticleHtml = `<article>
         <div class='article-title'>${title}</div>
         <div class='article-content'>${content}</div>
+        <div class='post-user-info'>Posted by: ${username} (${role})</div>
     </article>`;
 
     // Targeting the section where articles should be displayed
