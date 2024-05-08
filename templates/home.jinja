@@ -128,10 +128,9 @@
     // the user joins a (socket) room
      $("#receiver").on("keyup", (e) => {
         if (e.key == "Enter") {
-            join_room();
+            join_room(friend);
         }
     })
-
 
     $(document).ready(() => {
         // room_id is undefined if the user hasn't joined a room
@@ -162,16 +161,17 @@
     })
     
     // we'll send the message to the server by emitting a "send" event
-    function send() {
-        let message = $("#message").val();
+    function send() { // Not used?
+        const receiver = $("#receiver").val();
+        const message = $("#message").val();
         $("#message").val("");
-        socket.emit("send", username, message, room_id);  
+        socket.emit("send", username, receiver, message, room_id);  
     } 
 
     // we emit a join room event to the server to join a room
-    function join_room() {
+    function join_room(friend) {
        
-        let receiver = $("#receiver").val();
+        let receiver = friend;
 
         // pass in the receiver of our message to the server
         // as well as the current user's username
@@ -263,6 +263,10 @@
     }
     
     function startChat(friendUsername) {
+
+        // Trigger join room directly with the friend's username
+        join_room(friendUsername);
+
         // This function will be called when 'Chat' button is clicked
         // It changes the inner HTML of the dynamic-content div to show the chat interface
         const chatInterface = `
@@ -282,15 +286,18 @@
 
     function sendMessage(friendUsername) {
         const message = document.getElementById('message_input').value;
+
+        console.log(message)
         document.getElementById('message_input').value = ''; // Clear input after sending
         // Here you would call your socket.emit or other AJAX to send the message
         // For now, we just append it to our message_box
-        const messageBox = document.getElementById('message_box');
-        const msgElement = document.createElement('p');
-        msgElement.textContent = `You: ${message}`;
-        messageBox.appendChild(msgElement);
+
+        const messageBox = document.getElementById('message_box'); //Recieve message box
+        const msgElement = document.createElement('p'); //New paragraph
+        msgElement.textContent = `You: ${message}`; //Your message
+        messageBox.appendChild(msgElement); //Append to messagebox children
         // Assuming you have a socket.io setup already
-        socket.emit('send_message', { to: friendUsername, message: message });
+        socket.emit("send", friendUsername, message, room_id); //emit
     }
     
 </script>

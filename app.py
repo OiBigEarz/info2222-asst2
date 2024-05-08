@@ -135,9 +135,5 @@ def reject_friend_request():
     db.reject_friend_request(request_id)
     return "Friend request rejected", 200
 
-
-
-
-
 if __name__ == '__main__':
-    socketio.run(app)
+    socketio.run(app, host = 'localhost', port = 1204)
