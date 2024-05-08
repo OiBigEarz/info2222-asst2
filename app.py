@@ -137,3 +137,21 @@ def reject_friend_request():
 
 if __name__ == '__main__':
     socketio.run(app, host = 'localhost', port = 1204)
+
+@app.route("/delete-friend", methods=["POST"])
+def delete_friend():
+    if not request.is_json:
+        return "Invalid request", 400
+
+    username = request.json.get("username")
+    friend_username = request.json.get("friend_username")
+
+    if not username or not friend_username:
+        return "Missing data", 400
+
+    # Function to delete the friendship
+    try:
+        db.delete_friendship(username, friend_username)
+        return "Friend removed successfully", 200
+    except Exception as e:
+        return str(e), 500

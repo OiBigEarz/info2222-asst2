@@ -91,3 +91,13 @@ def get_messages(room_id):
     with Session(engine) as session:
         messages = session.query(Message).filter_by(room_id=room_id).order_by(Message.timestamp.asc()).all()
         return [(message.sender, message.text) for message in messages]
+
+def delete_friendship(username, friend_username):
+    with Session(engine) as session:
+        friendship1 = session.query(Friendship).filter_by(user_1=username, user_2=friend_username).first()
+        friendship2 = session.query(Friendship).filter_by(user_1=friend_username, user_2=username).first()
+        if friendship1:
+            session.delete(friendship1)
+        if friendship2:
+            session.delete(friendship2)
+        session.commit()

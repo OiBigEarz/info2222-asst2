@@ -91,7 +91,11 @@
                 <h2>Friends</h2>
                 <ul>
                     {% for friend in friends %}
-                    <li>{{ friend }} <button onclick="startChat('{{ friend }}')">Chat</button> <button>Remove</button></li>
+                    <li>
+                        {{ friend }}
+                        <button onclick="startChat('{{ friend }}')">Chat</button>
+                        <button onclick="removeFriend('{{ friend }}')">Remove</button>
+                    </li>
                     {% endfor %}
                 </ul>
             </section>
@@ -303,6 +307,23 @@
         socket.emit("send", username, friendUsername, message, room_id);
     }
 
-    
+function removeFriend(friendUsername) {
+    if (confirm("Are you sure you want to remove " + friendUsername + " as a friend?")) {
+        $.ajax({
+            url: "/delete-friend",
+            type: "POST",
+            contentType: "application/json",
+            data: JSON.stringify({ username: "{{ username }}", friend_username: friendUsername }),
+            success: function(response) {
+                alert("Friend removed successfully!");
+                location.reload();  // Reload the page to update the friends list
+            },
+            error: function(xhr, status, error) {
+                alert("Error removing friend: " + xhr.responseText);
+            }
+        });
+    }
+}
+
 </script>
 {% endblock %}
