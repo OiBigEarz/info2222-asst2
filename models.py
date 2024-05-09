@@ -32,7 +32,8 @@ class User(Base):
     isActive = Column(Boolean, default = False)
     account_type = Column(String)  # 'Student' or 'Staff'
     staff_type = Column(String)    # 'Academic', 'Administrative', 'Admin', or None
-    
+    articles = relationship("Article", back_populates="author")
+    comments = relationship("Comment", back_populates="author")
 
 # stateful counter used to generate the room id
 class Counter():
@@ -97,4 +98,22 @@ class Message(Base):
 
     sender_user = relationship("User", foreign_keys=[sender])
     receiver_user = relationship("User", foreign_keys=[receiver])
+
+class Article(Base):
+    __tablename__ = 'article'
+    id = Column(Integer, primary_key=True)
+    title = Column(String)
+    content = Column(String)
+    author_username = Column(String, ForeignKey('user.username'))
+    author = relationship("User", back_populates="articles")
+    comments = relationship("Comment", back_populates="article")
+
+class Comment(Base):
+    __tablename__ = 'comment'
+    id = Column(Integer, primary_key=True)
+    content = Column(String)
+    article_id = Column(Integer, ForeignKey('article.id'))
+    author_username = Column(String, ForeignKey('user.username'))
+    article = relationship("Article", back_populates="comments")
+    author = relationship("User", back_populates="comments")
 

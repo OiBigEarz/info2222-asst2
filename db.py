@@ -4,8 +4,9 @@ database file, containing all the logic to interface with the sql database
 '''
 
 from sqlalchemy import create_engine
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from models import *
+from models import Article, Comment, User
 
 from pathlib import Path
 
@@ -120,6 +121,81 @@ def update_user_true(username: str):
          user = session.get(User, username)
          if user:
              user.isActive = True
+             session.commit()     
+
+def insert_article(username, title, content):
+    with Session(engine) as session:
+        article = Article(title=title, content=content, author_username=username)
+        session.add(article)
+        session.commit()
+
+def get_articles():
+    with Session(engine) as session:
+        return session.query(Article).options(joinedload(Article.author)).all()
+
+def get_article(article_id):
+    with Session(engine) as session:
+        return session.query(Article).filter_by(id=article_id).one_or_none()
+
+
+def insert_comment(username, article_id, content):
+    with Session(engine) as session:
+        comment = Comment(content=content, article_id=article_id, author_username=username)
+        session.add(comment)
+        session.commit()
+
+def get_comments(article_id):
+    with Session(engine) as session:
+        comments = session.query(Comment).join(User, Comment.author_username == User.username).filter(Comment.article_id == article_id).all()
+        result = []
+        for comment in comments:
+            comment_info = {
+                'id': comment.id,
+                'content': comment.content,
+                'author_username': comment.author_username,
+                'author_role': comment.author.account_type,  # Ensure this is a string
+                'article_id': comment.article_id
+            }
+            result.append(comment_info)
+        return result
+
+def update_article(article_id, new_title, new_content):
+    with Session(engine) as session:
+        article = session.query(Article).filter_by(id=article_id).one_or_none()
+        if article:
+            article.title = new_title
+            article.content = new_content
+            session.commit()
+        else:
+            raise ValueError("Article not found")
+
+def delete_article(article_id):
+    with Session(engine) as session:
+        article = session.query(Article).filter_by(id=article_id).one_or_none()
+        if article:
+            session.delete(article)
+            session.commit()
+        else:
+            raise ValueError("Article not found")
+
+def delete_comment(comment_id):
+    with Session(engine) as session:
+        comment = session.query(Comment).filter_by(id=comment_id).one_or_none()
+        if not comment:
+            return None  # Or some error message
+        session.delete(comment)
+        session.commit()
+
+def update_user_false(username: str):
+     with Session(engine) as session:
+         user = session.get(User, username)
+         if user:
+             user.isActive = False
              session.commit()
              
-                  
+def update_user_true(username: str):
+     with Session(engine) as session:
+         user = session.get(User, username)
+         if user:
+             user.isActive = True
+             session.commit()

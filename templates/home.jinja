@@ -27,6 +27,24 @@
         overflow-y: auto;
         border-left: 1px solid #ccc;
     }
+
+    #user-info {
+        text-align: center;
+        color: #FFF; /* White text color */
+        padding: 10px;
+        border-radius: 8px;
+        background-color: rgba(0, 0, 0, 0.6); /* Semi-transparent black background */
+        position: absolute;
+        right: 20px;
+        top: 20px;
+    }
+
+    .post-user-info {
+        font-size: 0.9em;
+        color: #666;
+        margin-top: 10px;
+    }
+
     article {
         background: #fff;
         margin-bottom: 10px;
@@ -64,26 +82,123 @@
         background: rgba(255, 255, 255, 0.8);
         border-radius: 5px;
     }
-</style>
+
+    .modal {
+        display: none; /* Hidden by default */
+        position: absolute; /* Positioned relative to the #article-section */
+        z-index: 2; /* Sits on top */
+        left: 0;
+        top: 0;
+        width: 100%; /* Full width of the article-section */
+        height: 100%; /* Full height of the article-section */
+        background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+    }
+
+    .modal-content {
+        position: absolute; /* Position it below the button */
+        top: 50px; /* Adjust this value to position the modal below the button */
+        left: 50%;
+        transform: translateX(-50%); /* Center the modal horizontally */
+        background-color: #fefefe;
+        padding: 20px;
+        border: 1px solid #888;
+        width: 80%; /* Relative to the article-section */
+        box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2), 0 6px 20px 0 rgba(0,0,0,0.19);
+        border-radius: 10px;
+    }
+
+    .close {
+        color: #aaa;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+    }
+
+    .close:hover,
+    .close:focus {
+        color: black;
+        text-decoration: none;
+        cursor: pointer;
+    }
+
+    input[type="text"], textarea {
+        width: calc(100% - 22px); /* Full width - padding and border */
+        padding: 10px;
+        margin-top: 8px;
+        margin-bottom: 8px;
+        display: inline-block;
+        border: 1px solid #ccc;
+        box-sizing: border-box;
+        border-radius: 5px;
+    }
+
+    button[type="button"] {
+        background-color: #4CAF50;
+        color: white;
+        padding: 14px 20px;
+        margin: 8px 0;
+        border: none;
+        cursor: pointer;
+        width: 100%;
+        border-radius: 5px;
+    }
+
+    .comment-section {
+        background-color: #f9f9f9; /* Light grey background to differentiate comments */
+        border: 1px solid #ddd; /* Slight border for definition */
+        padding: 10px;
+        margin-top: 5px;
+        display: none; /* Initially hidden */
+        border-radius: 5px;
+    }
+
+    .comment {
+        font-size: 0.9em;
+        color: #555; /* Darker text for readability */
+        margin-top: 5px;
+        padding: 5px;
+        border-bottom: 1px solid #eee; /* Light line between comments */
+    }
+
+    textarea {
+        width: 95%; /* Slightly less than full width to fit padding */
+        margin: 5px 0; /* Space above and below */
+        padding: 8px; /* Comfortable padding inside textarea */
+        border: 1px solid #ccc; /* Consistent with other inputs */
+        border-radius: 4px; /* Rounded corners */
+    }
+
+    .expand-article-btn, .close-btn {
+        background-color: #4CAF50; /* Green background to stand out */
+        color: white;
+        padding: 8px 16px;
+        margin: 5px;
+        border: none;
+        cursor: pointer;
+        border-radius: 4px;
+    }
+
+    .close-btn {
+        background-color: #f44336; /* Red background for closing action */
+    }
+
+    </style>
 
 <div id="main-container">
+    <div id="user-info">
+        <span id="username-display">User: "{{ username }}"</span> | <span id="role-display">{{ role }}</span>
+    </div>
+    
     <div id="article-section">
         <h1>Articles</h1>
-        <article>
-            <div class="article-title">Article 1</div>
-            <div class="article-content">Body Content</div>
-        </article>
-        <article>
-            <div class="article-title">Article 2</div>
-            <div class="article-content">Body Content</div>
-        </article>
+        <button id="post-article-btn">Post New Article</button>
     </div>
 
     <div id="chat-section">
         <!-- Placeholder for dynamic content, initially loads friend management -->
         <div id="dynamic-content">
             <!-- Initial content loaded here will be friend management -->
-            <div class="controls">
+            <div class="message-groups">
                 <input id="friend_username" placeholder="Enter username to add">
                 <button onclick="sendFriendRequest()">Add Friend</button>
             </div>
@@ -116,23 +231,37 @@
                     {% endfor %}
                 </ul>
             </section>
-            <section class="message-groups">
-                <h2>Message Groups</h2>
-                <input placeholder="Enter usernames" />
-                <button>Create Group Chat</button>
+            <section class="lobby-chat">
+                <h2>Lobby Chat</h2>
+                <div id="message_box" style="height: 300px; overflow-y: auto; border: 1px solid #ccc; margin-bottom: 10px;"></div>
+                <input id="message_input" placeholder="Type a message" onkeyup="if(event.keyCode === 13) sendMessage()">
+                <button onclick="sendMessage()">Send</button>
             </section>
             <section class="logout">
                 <button onclick="logoutSession()">Log out</button>
             </section>
         </div>
     </div>
+
+    <div id="post-modal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal()">&times;</span>
+        <form id="post-form">
+            <input type="text" id="post-title" placeholder="Title" required>
+            <textarea id="post-content" placeholder="Write your article..." required></textarea>
+            <button type="button" onclick="submitPost()">Post</button>
+        </form>
+    </div>
+</div>
+
 </div>
 
 <script src="/static/js/libs/socket.io.min.js"></script>
 <script>
     let room_id = 0;
-
-
+    let username = "{{ username }}";
+    let role = "{{ role }}";
+    document.addEventListener('DOMContentLoaded', fetchArticles);
 
     // when the user presses the "Enter" key inside of the "message box", 
     // the message is sent to the server
@@ -151,6 +280,9 @@
     })
 
     $(document).ready(() => {
+        updateUsernameDisplay();
+        setupModalButton();
+        document.addEventListener('DOMContentLoaded', fetchArticles);
         // room_id is undefined if the user hasn't joined a room
         // we early return in this case
         if (Cookies.get("room_id") == undefined) {
@@ -162,12 +294,11 @@
         $("#chat_box").hide();
         $("#input_box").show();
         room_id = parseInt(Cookies.get("room_id"));
+        
     })
     
     // Here's the Socket IO part of the code
     // things get a bit complicated here so brace yourselves :P
-    let username = "{{ username }}";
-
     Cookies.set('username', username);
 
     // initializes the socket
@@ -177,13 +308,7 @@
     socket.on("incoming", (msg, color="black") => {
         add_message(msg, color);
     })
-
-
-    socket.on("disconnect", () => {
-        console.log(socket.id); 
-    });
-
-
+    
     // we'll send the message to the server by emitting a "send" event
     function send() { // Not used?
         const receiver = $("#receiver").val();
@@ -348,23 +473,42 @@
         socket.emit("send", username, friendUsername, message, room_id);
     }
 
-    function removeFriend(friendUsername) {
-        if (confirm("Are you sure you want to remove " + friendUsername + " as a friend?")) {
-            $.ajax({
-                url: "/delete-friend",
-                type: "POST",
-                contentType: "application/json",
-                data: JSON.stringify({ username: "{{ username }}", friend_username: friendUsername }),
-                success: function(response) {
-                    alert("Friend removed successfully!");
-                    location.reload();  // Reload the page to update the friends list
-                },
-                error: function(xhr, status, error) {
-                    alert("Error removing friend: " + xhr.responseText);
-                    }
-                });
+function removeFriend(friendUsername) {
+    if (confirm("Are you sure you want to remove " + friendUsername + " as a friend?")) {
+        $.ajax({
+            url: "/delete-friend",
+            type: "POST",
+            contentType: "application/json",
+            data: JSON.stringify({ username: "{{ username }}", friend_username: friendUsername }),
+            success: function(response) {
+                alert("Friend removed successfully!");
+                location.reload();  // Reload the page to update the friends list
+            },
+            error: function(xhr, status, error) {
+                alert("Error removing friend: " + xhr.responseText);
             }
+        });
     }
+}
+
+    function updateFriendsList(username) {
+    $.ajax({
+        url: "/list-friends/" + username,
+        type: "GET",
+        success: function(response) {
+            console.log("WE got it")
+            $(".friend-list").html(data);
+        },
+        error: function(xhr, status, error) {
+            alert("Error updating friend data: " + xhr.responseText);
+            }
+        });
+    }
+
+    $(document).ready(function() {
+        console.log("we made it!")
+        updateFriendsList(username);
+    });
 
     function updateFriendsList(username) {
     $.ajax({
