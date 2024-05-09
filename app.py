@@ -248,18 +248,19 @@ def update_article(article_id):
 
 @app.route('/articles/<int:article_id>', methods=['DELETE'])
 def delete_article(article_id):
-    username = request.args.get("username")
-    user = db.get_user(username)
-    article = db.get_article(article_id)
-    
-    if article is None:
-        return jsonify({'message': 'Article not found'}), 404
+    try:
+        username = request.args.get("username")
+        user = db.get_user(username)
+        article = db.get_article(article_id)
 
-    if user and (user.account_type == "Staff" and user.staff_type != "Student" or article.author_username == username):
-        db.delete_article(article_id)
-        return jsonify({"message": "Article deleted successfully!"}), 200
-    else:
-        return jsonify({"message": "Unauthorized"}), 403
+        if article is None:
+            return jsonify({'message': 'Article not found'}), 404
 
-
+        if user and (user.account_type == "Staff" and user.staff_type != "Student" or article.author_username == username):
+            db.delete_article(article_id)
+            return jsonify({"message": "Article deleted successfully!"}), 200
+        else:
+            return jsonify({"message": "Unauthorized"}), 403
+    except Exception as e:
+        return jsonify({"message": str(e)}), 500
 

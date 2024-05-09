@@ -137,3 +137,12 @@ def update_article(article_id, new_title, new_content):
             session.commit()
         else:
             raise ValueError("Article not found")
+
+def delete_article(article_id):
+    with Session(engine) as session:
+        article = session.query(Article).filter_by(id=article_id).one_or_none()
+        if article:
+            session.delete(article)
+            session.commit()
+        else:
+            raise ValueError("Article not found")
