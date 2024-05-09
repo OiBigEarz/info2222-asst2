@@ -113,6 +113,11 @@ def get_articles():
     with Session(engine) as session:
         return session.query(Article).options(joinedload(Article.author)).all()
 
+def get_article(article_id):
+    with Session(engine) as session:
+        return session.query(Article).filter_by(id=article_id).one_or_none()
+
+
 def insert_comment(username, article_id, content):
     with Session(engine) as session:
         comment = Comment(content=content, article_id=article_id, author_username=username)
@@ -122,3 +127,13 @@ def insert_comment(username, article_id, content):
 def get_comments(article_id):
     with Session(engine) as session:
         return session.query(Comment).filter_by(article_id=article_id).all()
+    
+def update_article(article_id, new_title, new_content):
+    with Session(engine) as session:
+        article = session.query(Article).filter_by(id=article_id).one_or_none()
+        if article:
+            article.title = new_title
+            article.content = new_content
+            session.commit()
+        else:
+            raise ValueError("Article not found")
