@@ -4,7 +4,7 @@ database file, containing all the logic to interface with the sql database
 '''
 
 from sqlalchemy import create_engine
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from models import *
 from models import Article, Comment, User
 
@@ -111,7 +111,7 @@ def insert_article(username, title, content):
 
 def get_articles():
     with Session(engine) as session:
-        return session.query(Article).all()
+        return session.query(Article).options(joinedload(Article.author)).all()
 
 def insert_comment(username, article_id, content):
     with Session(engine) as session:

@@ -500,14 +500,19 @@ function updateUsernameDisplay() {
         .then(articles => {
             const articleContainer = document.getElementById('article-section');
             articleContainer.innerHTML = '<h1>Articles</h1><button id="post-article-btn">Post New Article</button>'; // Reset the innerHTML and keep the button
-            
+
             articles.forEach(article => {
+                const canEdit = (username === article.author_username || role !== 'Student');
+                const canDelete = (role !== 'Student');
+
                 const articleHtml = `
                     <article id="article-${article.id}">
                         <div class='article-title'>${article.title}</div>
                         <div class='article-content'>${article.content}</div>
-                        <div class='post-user-info'>Posted by: ${article.author}</div>
+                        <div class='post-user-info'>Posted by: ${article.author_username} (${article.author_role})</div>
                         <button class="expand-article-btn" onclick="expandArticle(this, ${article.id})">Read More...</button>
+                        ${canEdit ? `<button onclick="editArticle(${article.id})">Edit</button>` : ''}
+                        ${canDelete ? `<button onclick="deleteArticle(${article.id})">Delete</button>` : ''}
                         <div class="comment-section" style="display: none;">
                             <div class="comments-display"></div> <!-- This will hold the comments -->
                             <textarea placeholder="Add a comment..."></textarea>
@@ -522,6 +527,7 @@ function updateUsernameDisplay() {
         })
         .catch(error => console.error('Error loading articles:', error));
     }
+
 
 
 function submitPost() {
@@ -606,6 +612,31 @@ function fetchComments(articleId) {
 }
 
 
+function editArticle(articleId) {
+    const title = prompt("Enter new title:");
+    const content = prompt("Enter new content:");
+    fetch(`/articles/${articleId}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({title: title, content: content, username: username})
+    })
+    .then(response => response.json())
+    .then(data => {
+        alert(data.message);
+        fetchArticles();  // Refresh the articles list
+    });
+}
+
+function deleteArticle(articleId) {
+    fetch(`/articles/${articleId}?username=${username}`, {
+        method: 'DELETE'
+    })
+    .then(response => response.json())
+    .then(data => {
+        alert(data.message);
+        fetchArticles();  // Refresh the articles list
+    });
+}
 
 
 

@@ -178,7 +178,26 @@ def create_article():
 @app.route('/articles', methods=['GET'])
 def get_articles():
     articles = db.get_articles()
-    return jsonify([{"id": article.id, "title": article.title, "content": article.content, "author": article.author_username} for article in articles])
+    articles_data = []
+    for article in articles:
+        if article.author:
+            articles_data.append({
+                "id": article.id, 
+                "title": article.title, 
+                "content": article.content, 
+                "author_username": article.author.username, 
+                "author_role": article.author.account_type if article.author else 'Unknown'
+            })
+        else:
+            articles_data.append({
+                "id": article.id, 
+                "title": article.title, 
+                "content": article.content, 
+                "author_username": "Unknown", 
+                "author_role": "Unknown"
+            })
+    return jsonify(articles_data)
+
 
 @app.route('/comments', methods=['POST'])
 def post_comment():
@@ -203,4 +222,35 @@ def get_comments(article_id):
         } for comment in comments]), 200
     except Exception as e:
         return str(e), 500
+    
+@app.route('/articles/<int:article_id>', methods=['PUT'])
+def update_article(article_id):
+    if not request.is_json:
+        abort(400)
+    new_title = request.json.get("title")
+    new_content = request.json.get("content")
+    username = request.json.get("username")
+    user = db.get_user(username)
+    article = db.get_article(article_id)
+
+    # Check if the user is the author or a staff member but not a student
+    if article.author_username == username or (user.account_type == "Staff" and user.staff_type != "Student"):
+        db.update_article(article_id, new_title, new_content)
+        return jsonify({"message": "Article updated successfully!"}), 200
+    else:
+        return "Unauthorized", 403
+
+@app.route('/articles/<int:article_id>', methods=['DELETE'])
+def delete_article(article_id):
+    username = request.args.get("username")
+    user = db.get_user(username)
+    article = db.get_article(article_id)
+
+    # Allow deletion if user is staff (not a student) or the article's author
+    if user.account_type == "Staff" and user.staff_type != "Student" or article.author_username == username:
+        db.delete_article(article_id)
+        return jsonify({"message": "Article deleted successfully!"}), 200
+    else:
+        return "Unauthorized", 403
+
 
