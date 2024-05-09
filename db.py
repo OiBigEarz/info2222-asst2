@@ -126,7 +126,20 @@ def insert_comment(username, article_id, content):
 
 def get_comments(article_id):
     with Session(engine) as session:
-        return session.query(Comment).filter_by(article_id=article_id).all()
+        comments = session.query(Comment).join(User, Comment.author_username == User.username).filter(Comment.article_id == article_id).all()
+        result = []
+        for comment in comments:
+            comment_info = {
+                'id': comment.id,
+                'content': comment.content,
+                'author_username': comment.author_username,
+                'author_role': comment.author.account_type,  # Ensure this is a string
+                'article_id': comment.article_id
+            }
+            result.append(comment_info)
+        return result
+
+
     
 def update_article(article_id, new_title, new_content):
     with Session(engine) as session:
@@ -146,3 +159,12 @@ def delete_article(article_id):
             session.commit()
         else:
             raise ValueError("Article not found")
+
+def delete_comment(comment_id):
+    with Session(engine) as session:
+        comment = session.query(Comment).filter_by(id=comment_id).one_or_none()
+        if comment:
+            session.delete(comment)
+            session.commit()
+        else:
+            raise ValueError("Comment not found")

@@ -210,18 +210,16 @@ def post_comment():
     db.insert_comment(username, article_id, content)
     return jsonify({"message": "Comment added successfully!"}), 201
 
-@app.route('/comments/<article_id>', methods=['GET'])
-def get_comments(article_id):
+@app.route('/comments/<int:article_id>', methods=['GET'])
+def get_comments_route(article_id):
     try:
-        comments = db.get_comments(article_id) 
-        return jsonify([{
-            'id': comment.id,
-            'content': comment.content,
-            'author_username': comment.author_username,
-            'article_id': comment.article_id
-        } for comment in comments]), 200
+        comments = db.get_comments(article_id)
+        return jsonify(comments)
     except Exception as e:
-        return str(e), 500
+        # Log the exception details to help diagnose the issue
+        print(f"Error retrieving comments: {str(e)}")
+        return jsonify({"error": "Failed to retrieve comments"}), 500
+
     
 @app.route('/articles/<int:article_id>', methods=['PUT'])
 def update_article(article_id):
@@ -264,3 +262,15 @@ def delete_article(article_id):
     except Exception as e:
         return jsonify({"message": str(e)}), 500
 
+@app.route('/comments/<int:comment_id>', methods=['DELETE'])
+def delete_comment(comment_id):
+    username = request.args.get("username")
+    user = db.get_user(username)
+    if user and user.account_type != "Student":
+        try:
+            db.delete_comment(comment_id)
+            return jsonify({"message": "Comment deleted successfully!"}), 200
+        except Exception as e:
+            return jsonify({"message": str(e)}), 500
+    else:
+        return jsonify({"message": "Unauthorized"}), 403
