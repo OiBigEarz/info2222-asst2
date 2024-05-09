@@ -524,6 +524,213 @@ function removeFriend(friendUsername) {
         });
     }
 
+    // Function to update the username display
+    function updateUsernameDisplay() {
+        document.getElementById('username-display').innerText = `User: ${username}`;
+    }
+    
+        document.addEventListener('DOMContentLoaded', function() {
+            setupModalButton();
+            fetchArticles();
+        });
+    
+        function setupModalButton() {
+            var btn = document.getElementById('post-article-btn');
+            if (btn) {
+                btn.addEventListener('click', showPostModal);
+            } else {
+                console.error('Post article button not found.');
+            }
+        }
+    
+        function showPostModal() {
+            var modal = document.getElementById('post-modal');
+            if (modal) {
+                modal.style.display = 'block';
+            } else {
+                console.error('Modal element not found! Check if ID is correct and element exists when this code runs.');
+            }
+        }
+    
+        function closeModal() {
+            var modal = document.getElementById('post-modal');
+            if (modal) {
+                modal.style.display = 'none';
+            } else {
+                console.error('Modal element not found!');
+            }
+        }
+    
+        function fetchArticles() {
+            fetch('/articles')
+            .then(response => response.json())
+            .then(articles => {
+                const articleContainer = document.getElementById('article-section');
+                articleContainer.innerHTML = '<h1>Articles</h1><button id="post-article-btn">Post New Article</button>'; // Reset the innerHTML and keep the button
+    
+                articles.forEach(article => {
+                    const canEdit = (username === article.author_username || role !== 'Student');
+                    const canDelete = (role !== 'Student');
+    
+                    const articleHtml = `
+                        <article id="article-${article.id}">
+                            <div class='article-title'>${article.title}</div>
+                            <div class='article-content'>${article.content}</div>
+                            <div class='post-user-info'>Posted by: ${article.author_username} (${article.author_role})</div>
+                            <button class="expand-article-btn" onclick="expandArticle(this, ${article.id})">Read More...</button>
+                            ${canEdit ? `<button onclick="editArticle(${article.id})">Edit</button>` : ''}
+                            ${canDelete ? `<button onclick="deleteArticle(${article.id})">Delete</button>` : ''}
+                            <div class="comment-section" style="display: none;">
+                                <div class="comments-display"></div> <!-- This will hold the comments -->
+                                <textarea placeholder="Add a comment..."></textarea>
+                                <button onclick="submitComment(this, ${article.id})">Comment</button>
+                                <button class="close-btn" onclick="collapseArticle(this.parentNode)">X Close</button>
+                            </div>
+                        </article>`;
+                    articleContainer.insertAdjacentHTML('beforeend', articleHtml);
+                });
+    
+                setupModalButton(); // Rebind the event listener to the button after content update
+            })
+            .catch(error => console.error('Error loading articles:', error));
+        }
+    
+    
+    
+    function submitPost() {
+        var title = document.getElementById('post-title').value;
+        var content = document.getElementById('post-content').value;
+    
+        fetch('/articles', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                title: title,
+                content: content,
+                username: "{{ username }}"
+            })
+        })
+        .then(response => {
+            if (response.ok) {
+                fetchArticles(); // Refresh the list of articles
+                closeModal(); // Close the modal after posting
+                return response.json();
+            }
+            throw new Error('Network response was not ok.');
+        })
+        .then(data => console.log('Article posted:', data))
+        .catch(error => console.error('Error posting article:', error));
+    }
+    
+    
+    function expandArticle(button, articleId) {
+        var article = document.getElementById(`article-${articleId}`);
+        fetchComments(articleId);
+        article.querySelector('.comment-section').style.display = 'block';
+        button.style.display = 'none'; // Hide the expand button
+    }
+    
+    
+    function collapseArticle(commentSection) {
+        commentSection.style.display = 'none'; // Only hide the comment section
+        var article = commentSection.parentNode;
+        article.querySelector('.expand-article-btn').style.display = 'block'; // Show the expand button again
+    }
+    
+    function submitComment(button, articleId) {
+        var commentBox = button.previousElementSibling;
+        var comment = commentBox.value;
+        fetch('/comments', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                content: comment,
+                article_id: articleId,
+                username: "{{ username }}"
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('Comment posted:', data);
+            commentBox.value = ''; // Clear the textarea
+            fetchComments(articleId); // Refresh comments display
+        })
+        .catch(error => console.error('Error posting comment:', error));
+    }
+    
+    function fetchComments(articleId) {
+        fetch(`/comments/${articleId}`)
+        .then(response => response.json())
+        .then(comments => {
+            const commentSection = document.querySelector(`#article-${articleId} .comments-display`);
+            commentSection.innerHTML = ''; // Clear existing comments first
+            comments.forEach(comment => {
+                let commentHtml = `<div class='comment'>
+                    ${comment.author_username} (${comment.author_role}): ${comment.content}`;
+                if (role !== 'Student') {
+                    commentHtml += ` <button onclick="deleteComment(${comment.id}, ${articleId})">Delete</button>`;
+                }
+                commentHtml += `</div>`;
+                commentSection.insertAdjacentHTML('beforeend', commentHtml);
+            });
+        })
+        .catch(error => console.error('Error loading comments:', error));
+    }
+    
+    
+    
+    function editArticle(articleId) {
+        const title = prompt("Enter new title:");
+        const content = prompt("Enter new content:");
+        fetch(`/articles/${articleId}`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({title: title, content: content, username: username})
+        })
+        .then(response => response.json())
+        .then(data => {
+            alert(data.message);
+            fetchArticles();  // Refresh the articles list
+        });
+    }
+    
+    function deleteArticle(articleId) {
+        fetch(`/articles/${articleId}?username=${username}`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            alert(data.message);
+            fetchArticles();  // Refresh the articles list
+        });
+    }
+    
+    function deleteComment(commentId, articleId) {
+        if (confirm("Are you sure you want to delete this comment?")) {
+            fetch(`/comments/${commentId}?username=${username}`, {
+                method: 'DELETE'
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Failed to delete comment');
+                }
+                return response.json();
+            })
+            .then(data => {
+                alert(data.message);
+                fetchComments(articleId); // Ensuring articleId is passed and used correctly
+            })
+            .catch(error => {
+                console.error('Error deleting comment:', error);
+                alert('Error deleting comment');
+            });
+        }
+    }
+
     $(document).ready(function() {
         console.log("we made it!")
         updateFriendsList(username);

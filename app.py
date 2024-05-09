@@ -206,118 +206,6 @@ def get_articles():
             })
     return jsonify(articles_data)
 
-
-@app.route('/comments', methods=['POST'])
-def post_comment():
-    if not request.is_json:
-        abort(400)
-    content = request.json.get("content")
-    article_id = request.json.get("article_id")
-    username = request.json.get("username")
-
-    db.insert_comment(username, article_id, content)
-    return jsonify({"message": "Comment added successfully!"}), 201
-
-@app.route('/comments/<int:article_id>', methods=['GET'])
-def get_comments_route(article_id):
-    try:
-        comments = db.get_comments(article_id)
-        return jsonify(comments)
-    except Exception as e:
-        # Log the exception details to help diagnose the issue
-        print(f"Error retrieving comments: {str(e)}")
-        return jsonify({"error": "Failed to retrieve comments"}), 500
-
-    
-@app.route('/articles/<int:article_id>', methods=['PUT'])
-def update_article(article_id):
-    if not request.is_json:
-        return jsonify({'message': 'Invalid request'}), 400
-
-    try:
-        new_title = request.json.get("title")
-        new_content = request.json.get("content")
-        username = request.json.get("username")
-
-        user = db.get_user(username)
-        article = db.get_article(article_id)
-        if article is None:
-            return jsonify({'message': 'Article not found'}), 404
-
-        if article.author_username == username or (user and user.account_type == "Staff" and user.staff_type != "Student"):
-            db.update_article(article_id, new_title, new_content)
-            return jsonify({"message": "Article updated successfully!"}), 200
-        else:
-            return jsonify({"message": "Unauthorized"}), 403
-    except Exception as e:
-        return jsonify({"message": str(e)}), 500
-
-@app.route('/articles/<int:article_id>', methods=['DELETE'])
-def delete_article(article_id):
-    try:
-        username = request.args.get("username")
-        user = db.get_user(username)
-        article = db.get_article(article_id)
-
-        if article is None:
-            return jsonify({'message': 'Article not found'}), 404
-
-        if user and (user.account_type == "Staff" and user.staff_type != "Student" or article.author_username == username):
-            db.delete_article(article_id)
-            return jsonify({"message": "Article deleted successfully!"}), 200
-        else:
-            return jsonify({"message": "Unauthorized"}), 403
-    except Exception as e:
-        return jsonify({"message": str(e)}), 500
-
-@app.route('/comments/<int:comment_id>', methods=['DELETE'])
-def delete_comment(comment_id):
-    username = request.args.get("username")
-    user = db.get_user(username)
-    if user and user.account_type != "Student":
-        try:
-            db.delete_comment(comment_id)
-            return jsonify({"message": "Comment deleted successfully!"}), 200
-        except Exception as e:
-            return jsonify({"message": str(e)}), 500
-    else:
-        return jsonify({"message": "Unauthorized"}), 403
-
-@app.route('/articles', methods=['POST'])
-def create_article():
-    if not request.is_json:
-        abort(400)
-    title = request.json.get("title")
-    content = request.json.get("content")
-    username = request.json.get("username")
-
-    db.insert_article(username, title, content)
-    return jsonify({"message": "Article created successfully!"}), 201
-
-@app.route('/articles', methods=['GET'])
-def get_articles():
-    articles = db.get_articles()
-    articles_data = []
-    for article in articles:
-        if article.author:
-            articles_data.append({
-                "id": article.id, 
-                "title": article.title, 
-                "content": article.content, 
-                "author_username": article.author.username, 
-                "author_role": article.author.account_type if article.author else 'Unknown'
-            })
-        else:
-            articles_data.append({
-                "id": article.id, 
-                "title": article.title, 
-                "content": article.content, 
-                "author_username": "Unknown", 
-                "author_role": "Unknown"
-            })
-    return jsonify(articles_data)
-
-
 @app.route('/comments', methods=['POST'])
 def post_comment():
     if not request.is_json:
@@ -398,14 +286,10 @@ def delete_comment(comment_id):
 def logout_user():
     if not request.is_json:
         abort(400) 
-
     username = request.json.get("username")
-    
     if not username:
         return "Invalid request", 400   
-
     db.update_user_false(username)
-    
     return url_for("index")
 
 if __name__ == '__main__':
