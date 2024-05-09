@@ -118,3 +118,7 @@ def insert_comment(username, article_id, content):
         comment = Comment(content=content, article_id=article_id, author_username=username)
         session.add(comment)
         session.commit()
+
+def get_comments(article_id):
+    with Session(engine) as session:
+        return session.query(Comment).filter_by(article_id=article_id).all()

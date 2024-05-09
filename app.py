@@ -178,7 +178,7 @@ def create_article():
 @app.route('/articles', methods=['GET'])
 def get_articles():
     articles = db.get_articles()
-    return jsonify([{"title": article.title, "content": article.content, "author": article.author_username} for article in articles])
+    return jsonify([{"id": article.id, "title": article.title, "content": article.content, "author": article.author_username} for article in articles])
 
 @app.route('/comments', methods=['POST'])
 def post_comment():
@@ -190,3 +190,17 @@ def post_comment():
 
     db.insert_comment(username, article_id, content)
     return jsonify({"message": "Comment added successfully!"}), 201
+
+@app.route('/comments/<article_id>', methods=['GET'])
+def get_comments(article_id):
+    try:
+        comments = db.get_comments(article_id) 
+        return jsonify([{
+            'id': comment.id,
+            'content': comment.content,
+            'author_username': comment.author_username,
+            'article_id': comment.article_id
+        } for comment in comments]), 200
+    except Exception as e:
+        return str(e), 500
+

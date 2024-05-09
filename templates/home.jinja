@@ -503,12 +503,13 @@ function updateUsernameDisplay() {
             
             articles.forEach(article => {
                 const articleHtml = `
-                    <article>
+                    <article id="article-${article.id}">
                         <div class='article-title'>${article.title}</div>
                         <div class='article-content'>${article.content}</div>
                         <div class='post-user-info'>Posted by: ${article.author}</div>
-                        <button class="expand-article-btn" onclick="expandArticle(this)">Read More...</button>
+                        <button class="expand-article-btn" onclick="expandArticle(this, ${article.id})">Read More...</button>
                         <div class="comment-section" style="display: none;">
+                            <div class="comments-display"></div> <!-- This will hold the comments -->
                             <textarea placeholder="Add a comment..."></textarea>
                             <button onclick="submitComment(this, ${article.id})">Comment</button>
                             <button class="close-btn" onclick="collapseArticle(this.parentNode)">X Close</button>
@@ -551,11 +552,13 @@ function submitPost() {
 }
 
 
-function expandArticle(button) {
-    var article = button.parentNode;
+function expandArticle(button, articleId) {
+    var article = document.getElementById(`article-${articleId}`);
+    fetchComments(articleId);
     article.querySelector('.comment-section').style.display = 'block';
     button.style.display = 'none'; // Hide the expand button
 }
+
 
 function collapseArticle(commentSection) {
     commentSection.style.display = 'none'; // Only hide the comment section
@@ -577,18 +580,29 @@ function submitComment(button, articleId) {
             username: "{{ username }}"
         })
     })
-    .then(response => {
-        if (response.ok) {
-            commentBox.value = ''; // Reset the comment box
-            return response.json();
-        }
-        throw new Error('Failed to post comment');
-    })
+    .then(response => response.json())
     .then(data => {
         console.log('Comment posted:', data);
-        fetchArticles(); // Optionally refresh articles to show new comments
+        commentBox.value = ''; // Clear the textarea
+        fetchComments(articleId); // Refresh comments display
     })
     .catch(error => console.error('Error posting comment:', error));
+}
+
+function fetchComments(articleId) {
+    fetch(`/comments/${articleId}`)
+    .then(response => response.json())
+    .then(comments => {
+        const commentSection = document.querySelector(`#article-${articleId} .comments-display`);
+        commentSection.innerHTML = ''; // Clear existing comments first
+        comments.forEach(comment => {
+            const commentDiv = document.createElement('div');
+            commentDiv.className = 'comment';
+            commentDiv.textContent = `${comment.author_username}: ${comment.content}`;
+            commentSection.appendChild(commentDiv);
+        });
+    })
+    .catch(error => console.error('Error loading comments:', error));
 }
 
 
