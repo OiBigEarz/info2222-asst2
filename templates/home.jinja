@@ -185,27 +185,13 @@
     </style>
 
 <div id="main-container">
-
-    <div id="user-info" style="position: absolute; top: 10px; right: 20px;">
+    <div id="user-info">
         <span id="username-display">User: "{{ username }}"</span> | <span id="role-display">{{ role }}</span>
     </div>
     
     <div id="article-section">
         <h1>Articles</h1>
-        <button id="post-article-btn" onclick="showPostModal()">Post New Article</button>
-        <!-- Modal for posting new article -->
-        <div id="post-modal" class="modal">
-            <div class="modal-content">
-                <span class="close" onclick="closeModal()">&times;</span>
-                <form id="post-form">
-                    <input type="text" id="post-title" placeholder="Title" required>
-                    <textarea id="post-content" placeholder="Write your article..." required></textarea>
-                    <button type="button" onclick="submitPost()">Post</button>
-                </form>
-            </div>
-        </div>
-
-
+        <button id="post-article-btn">Post New Article</button>
     </div>
 
     <div id="chat-section">
@@ -243,6 +229,18 @@
             </section>
         </div>
     </div>
+
+    <div id="post-modal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal()">&times;</span>
+        <form id="post-form">
+            <input type="text" id="post-title" placeholder="Title" required>
+            <textarea id="post-content" placeholder="Write your article..." required></textarea>
+            <button type="button" onclick="submitPost()">Post</button>
+        </form>
+    </div>
+</div>
+
 </div>
 
 <script src="/static/js/libs/socket.io.min.js"></script>
@@ -270,6 +268,8 @@
 
     $(document).ready(() => {
         updateUsernameDisplay();
+        setupModalButton();
+        document.addEventListener('DOMContentLoaded', fetchArticles);
         // room_id is undefined if the user hasn't joined a room
         // we early return in this case
         if (Cookies.get("room_id") == undefined) {
@@ -462,23 +462,66 @@ function updateUsernameDisplay() {
     document.getElementById('username-display').innerText = `User: ${username}`;
 }
 
-function showPostModal() {
-    var modal = document.getElementById('post-modal');
-    if (modal) {
-        modal.style.display = 'block';
-    } else {
-        console.error('Modal element not found!');
-    }
-}
+    document.addEventListener('DOMContentLoaded', function() {
+        setupModalButton();
+        fetchArticles();
+    });
 
-function closeModal() {
-    var modal = document.getElementById('post-modal');
-    if (modal) {
-        modal.style.display = 'none';
-    } else {
-        console.error('Modal element not found!');
+    function setupModalButton() {
+        var btn = document.getElementById('post-article-btn');
+        if (btn) {
+            btn.addEventListener('click', showPostModal);
+        } else {
+            console.error('Post article button not found.');
+        }
     }
-}
+
+    function showPostModal() {
+        var modal = document.getElementById('post-modal');
+        if (modal) {
+            modal.style.display = 'block';
+        } else {
+            console.error('Modal element not found! Check if ID is correct and element exists when this code runs.');
+        }
+    }
+
+    function closeModal() {
+        var modal = document.getElementById('post-modal');
+        if (modal) {
+            modal.style.display = 'none';
+        } else {
+            console.error('Modal element not found!');
+        }
+    }
+
+    function fetchArticles() {
+        fetch('/articles')
+        .then(response => response.json())
+        .then(articles => {
+            const articleContainer = document.getElementById('article-section');
+            articleContainer.innerHTML = '<h1>Articles</h1><button id="post-article-btn">Post New Article</button>'; // Reset the innerHTML and keep the button
+            
+            articles.forEach(article => {
+                const articleHtml = `
+                    <article>
+                        <div class='article-title'>${article.title}</div>
+                        <div class='article-content'>${article.content}</div>
+                        <div class='post-user-info'>Posted by: ${article.author}</div>
+                        <button class="expand-article-btn" onclick="expandArticle(this)">Read More...</button>
+                        <div class="comment-section" style="display: none;">
+                            <textarea placeholder="Add a comment..."></textarea>
+                            <button onclick="submitComment(this, ${article.id})">Comment</button>
+                            <button class="close-btn" onclick="collapseArticle(this.parentNode)">X Close</button>
+                        </div>
+                    </article>`;
+                articleContainer.insertAdjacentHTML('beforeend', articleHtml);
+            });
+
+            setupModalButton(); // Rebind the event listener to the button after content update
+        })
+        .catch(error => console.error('Error loading articles:', error));
+    }
+
 
 function submitPost() {
     var title = document.getElementById('post-title').value;
@@ -549,31 +592,7 @@ function submitComment(button, articleId) {
 }
 
 
-function fetchArticles() {
-    fetch('/articles')
-    .then(response => response.json())
-    .then(articles => {
-        const articleContainer = document.getElementById('article-section');
-        articleContainer.innerHTML = '<h1>Articles</h1><button id="post-article-btn" onclick="showPostModal()">Post New Article</button>'; // Reset the innerHTML and keep the button
-        
-        articles.forEach(article => {
-            const articleHtml = `
-                <article>
-                    <div class='article-title'>${article.title}</div>
-                    <div class='article-content'>${article.content}</div>
-                    <div class='post-user-info'>Posted by: ${article.author}</div>
-                    <button class="expand-article-btn" onclick="expandArticle(this)">Read More...</button>
-                    <div class="comment-section" style="display: none;">
-                        <textarea placeholder="Add a comment..."></textarea>
-                        <button onclick="submitComment(this, ${article.id})">Comment</button>
-                        <button class="close-btn" onclick="collapseArticle(this.parentNode)">X Close</button>
-                    </div>
-                </article>`;
-            articleContainer.insertAdjacentHTML('beforeend', articleHtml);
-        });
-    })
-    .catch(error => console.error('Error loading articles:', error));
-}
+
 
 
 
