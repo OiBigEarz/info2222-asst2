@@ -222,10 +222,11 @@
                     {% endfor %}
                 </ul>
             </section>
-            <section class="message-groups">
-                <h2>Message Groups</h2>
-                <input placeholder="Enter usernames" />
-                <button>Create Group Chat</button>
+            <section class="lobby-chat">
+                <h2>Lobby Chat</h2>
+                <div id="message_box" style="height: 300px; overflow-y: auto; border: 1px solid #ccc; margin-bottom: 10px;"></div>
+                <input id="message_input" placeholder="Type a message" onkeyup="if(event.keyCode === 13) sendMessage()">
+                <button onclick="sendMessage()">Send</button>
             </section>
         </div>
     </div>
@@ -295,7 +296,7 @@
     socket.on("incoming", (msg, color="black") => {
         add_message(msg, color);
     })
-    
+
     // we'll send the message to the server by emitting a "send" event
     function send() { // Not used?
         const receiver = $("#receiver").val();
