@@ -163,8 +163,8 @@ def delete_article(article_id):
 def delete_comment(comment_id):
     with Session(engine) as session:
         comment = session.query(Comment).filter_by(id=comment_id).one_or_none()
-        if comment:
-            session.delete(comment)
-            session.commit()
-        else:
-            raise ValueError("Comment not found")
+        if not comment:
+            return None  # Or some error message
+        session.delete(comment)
+        session.commit()
+

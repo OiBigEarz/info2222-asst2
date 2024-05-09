@@ -605,7 +605,7 @@ function fetchComments(articleId) {
             let commentHtml = `<div class='comment'>
                 ${comment.author_username} (${comment.author_role}): ${comment.content}`;
             if (role !== 'Student') {
-                commentHtml += ` <button onclick="deleteComment(${comment.id})">Delete</button>`;
+                commentHtml += ` <button onclick="deleteComment(${comment.id}, ${articleId})">Delete</button>`;
             }
             commentHtml += `</div>`;
             commentSection.insertAdjacentHTML('beforeend', commentHtml);
@@ -642,19 +642,28 @@ function deleteArticle(articleId) {
     });
 }
 
-function deleteComment(commentId) {
+function deleteComment(commentId, articleId) {
     if (confirm("Are you sure you want to delete this comment?")) {
         fetch(`/comments/${commentId}?username=${username}`, {
             method: 'DELETE'
         })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Failed to delete comment');
+            }
+            return response.json();
+        })
         .then(data => {
             alert(data.message);
-            fetchComments(); // Refresh the comments list after deletion
+            fetchComments(articleId); // Ensuring articleId is passed and used correctly
         })
-        .catch(error => console.error('Error deleting comment:', error));
+        .catch(error => {
+            console.error('Error deleting comment:', error);
+            alert('Error deleting comment');
+        });
     }
 }
+
 
 
 
