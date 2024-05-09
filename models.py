@@ -22,7 +22,6 @@ class Base(DeclarativeBase):
 # model to store user information
 class User(Base):
     __tablename__ = "user"
-    
     # looks complicated but basically means
     # I want a username column of type string,
     # and I want this column to be my primary key
@@ -30,6 +29,7 @@ class User(Base):
     # in other words we've mapped the username Python object property to an SQL column of type String 
     username: Mapped[str] = mapped_column(String, primary_key=True)
     password: Mapped[str] = mapped_column(String)
+    isActive = Column(Boolean, default = False)
     account_type = Column(String)  # 'Student' or 'Staff'
     staff_type = Column(String)    # 'Academic', 'Administrative', 'Admin', or None
     
@@ -61,8 +61,6 @@ class Room():
     def get_room_id(self, user1, user2):
         key = self.get_sorted_users(user1, user2)
         return self.rooms.get(key, None)
-
-
 
 class Friendship(Base):
     __tablename__ = "friendship"

@@ -22,9 +22,9 @@ engine = create_engine("sqlite:///database/main.db", echo=False)
 Base.metadata.create_all(engine)
 
 # inserts a user to the database
-def insert_user(username: str, password: str, account_type: str, staff_type: str = None):
+def insert_user(username: str, password: str, isActive: bool, account_type: str, staff_type: str = None):
     with Session(engine) as session:
-        user = User(username=username, password=password, account_type=account_type, staff_type=staff_type)
+        user = User(username=username, password=password, isActive = isActive, account_type=account_type, staff_type=staff_type)
         session.add(user)
         session.commit()
 
@@ -59,15 +59,21 @@ def list_friends(username: str):
     with Session(engine) as session:
         user = session.get(User, username)
         if user:
-
             friends = session.query(Friendship).filter(
                 (Friendship.user_1 == username) | (Friendship.user_2 == username)).all()
             # Extract friend usernames from friendships
-            friend_usernames = [
-                friend.user2.username if friend.user1.username == username else friend.user1.username 
-                for friend in friends
-            ]
-            return friend_usernames
+            
+            friendInfo = []
+            
+            for friend in friends:
+                if friend.user1.username == username:
+                    friendInfo.append({
+                        'username': friend.user2.username,
+                        'isActive': friend.user2.isActive,
+                        'account_type': friend.user2.account_type,
+                        'staff_type': friend.user2.staff_type
+                    })
+            return friendInfo
 
 def list_friend_requests(username: str):
     with Session(engine) as session:
@@ -101,3 +107,19 @@ def delete_friendship(username, friend_username):
         if friendship2:
             session.delete(friendship2)
         session.commit()
+
+def update_user_false(username: str):
+     with Session(engine) as session:
+         user = session.get(User, username)
+         if user:
+             user.isActive = False
+             session.commit()
+             
+def update_user_true(username: str):
+     with Session(engine) as session:
+         user = session.get(User, username)
+         if user:
+             user.isActive = True
+             session.commit()
+             
+                  

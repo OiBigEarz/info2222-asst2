@@ -43,13 +43,13 @@ def login_user():
     username = request.json.get("username")
     password = request.json.get("password")
 
-    user =  db.get_user(username)
+    user = db.get_user(username)
     if user is None:
         return "Error: User does not exist!"
 
     if user.password != password:
         return "Error: Password does not match!"
-
+    
     return url_for('home', username=request.json.get("username"))
 
 # handles a get request to the signup page
@@ -68,11 +68,14 @@ def signup_user():
     account_type = request.json.get("accountType")
     staff_type = request.json.get("staffType") if account_type == "Staff" else None
 
+    
     existing_user = db.get_user(username)
     if existing_user:
         return "Error: User already exists!"
+    
+    isActive = True
 
-    db.insert_user(username, password, account_type, staff_type)
+    db.insert_user(username, password, isActive, account_type, staff_type)
     return url_for('home', username=username)
 
 
@@ -84,16 +87,23 @@ def page_not_found(_):
 # home page, where the messaging app is
 @app.route("/home")
 def home():
+    print("am here")
     username = request.args.get("username")
+    
+    user = db.get_user(username)
+
     if username is None:
         abort(404)
 
     # Fetch friends and friend requests
     friends = db.list_friends(username)
     received_requests, sent_requests = db.list_friend_requests(username)
+    
+    db.update_user_true(username)
 
-    return render_template("home.jinja", username=username, friends=friends,
-                           received_requests=received_requests, sent_requests=sent_requests)
+    return render_template("home.jinja", username=username, isActive = user.isActive, friends=friends,
+                           received_requests=received_requests, sent_requests=sent_requests, 
+                           account_type = user.account_type, staff_type = user.staff_type)
 
 
 # Route to send a friend request
@@ -113,7 +123,8 @@ def add_friend():
 @app.route("/list-friends/<username>")
 def list_friends(username):
     friends = db.list_friends(username)
-    return render_template("friends_list.jinja", friends=friends, username=username)
+    print(friends)
+    return friends
 
 # Route to accept a friend request
 @app.route("/accept-friend-request", methods=["POST"])
@@ -135,9 +146,6 @@ def reject_friend_request():
     db.reject_friend_request(request_id)
     return "Friend request rejected", 200
 
-if __name__ == '__main__':
-    socketio.run(app, host = 'localhost', port = 1204)
-
 @app.route("/delete-friend", methods=["POST"])
 def delete_friend():
     if not request.is_json:
@@ -155,3 +163,20 @@ def delete_friend():
         return "Friend removed successfully", 200
     except Exception as e:
         return str(e), 500
+
+@app.route("/logout-user", methods=["POST"])
+def logout_user():
+    if not request.is_json:
+        abort(400) 
+
+    username = request.json.get("username")
+    
+    if not username:
+        return "Invalid request", 400   
+
+    db.update_user_false(username)
+    
+    return url_for("index")
+
+if __name__ == '__main__':
+    socketio.run(app, host = 'localhost', port = 1204)

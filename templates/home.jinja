@@ -92,9 +92,18 @@
                 <ul>
                     {% for friend in friends %}
                     <li>
-                        {{ friend }}
-                        <button onclick="startChat('{{ friend }}')">Chat</button>
-                        <button onclick="removeFriend('{{ friend }}')">Remove</button>
+                        {{ friend.username }}
+                        <button onclick="startChat('{{ friend.username }}')">Chat</button>
+                        <button onclick="removeFriend('{{ friend.username }}')">Remove</button>
+                        <p>Online?: {{ friend.isActive }}</p>     
+                        <p>User Type: 
+                            {% if friend.account_type == 'Student' %}
+                                {{friend.account_type}} 
+                            {% else %}
+                                {{friend.staff_type}} 
+                            {% endif %}
+                        </p>   
+
                     </li>
                     {% endfor %}
                 </ul>
@@ -112,6 +121,9 @@
                 <input placeholder="Enter usernames" />
                 <button>Create Group Chat</button>
             </section>
+            <section class="logout">
+                <button onclick="logoutSession()">Log out</button>
+            </section>
         </div>
     </div>
 </div>
@@ -119,6 +131,8 @@
 <script src="/static/js/libs/socket.io.min.js"></script>
 <script>
     let room_id = 0;
+
+
 
     // when the user presses the "Enter" key inside of the "message box", 
     // the message is sent to the server
@@ -163,7 +177,13 @@
     socket.on("incoming", (msg, color="black") => {
         add_message(msg, color);
     })
-    
+
+
+    socket.on("disconnect", () => {
+        console.log(socket.id); 
+    });
+
+
     // we'll send the message to the server by emitting a "send" event
     function send() { // Not used?
         const receiver = $("#receiver").val();
@@ -172,6 +192,10 @@
         console.log("Sending message:", {username, receiver, message, room_id});
         socket.emit("send", username, receiver, message, room_id);  
     } 
+
+    socket.on("user_status", (data) => {
+        console.log(`${data.username} is now ${data.status}`);
+    });   
 
     // we emit a join room event to the server to join a room
     function join_room(friend) {
@@ -196,7 +220,6 @@
             $("#chat_box").hide();
             $("#input_box").show();
         });
-     
     }
 
     // function when the user clicks on "Leave Room"
@@ -267,7 +290,25 @@
             }
         });
     }
-    
+ 
+    function logoutSession() {
+        console.log("Logging out user:", username);
+        if (confirm("Are you sure you want to logout " + username + "?")) {
+            $.ajax({
+                url: "/logout-user",
+                type: "POST",
+                contentType: "application/json",
+                data: JSON.stringify({username: "{{ username }}"}),
+                success: function(response) {
+                    window.location.href = "{{ url_for('index') }}"
+                },
+                error: function(xhr, status, error) {
+                    alert("Error logging out: " + xhr.responseText);
+                }
+            });
+        }   
+    }    
+
     function startChat(friendUsername) {
         // Trigger join room directly with the friend's username
         join_room(friendUsername);
@@ -307,23 +348,42 @@
         socket.emit("send", username, friendUsername, message, room_id);
     }
 
-function removeFriend(friendUsername) {
-    if (confirm("Are you sure you want to remove " + friendUsername + " as a friend?")) {
-        $.ajax({
-            url: "/delete-friend",
-            type: "POST",
-            contentType: "application/json",
-            data: JSON.stringify({ username: "{{ username }}", friend_username: friendUsername }),
-            success: function(response) {
-                alert("Friend removed successfully!");
-                location.reload();  // Reload the page to update the friends list
-            },
-            error: function(xhr, status, error) {
-                alert("Error removing friend: " + xhr.responseText);
+    function removeFriend(friendUsername) {
+        if (confirm("Are you sure you want to remove " + friendUsername + " as a friend?")) {
+            $.ajax({
+                url: "/delete-friend",
+                type: "POST",
+                contentType: "application/json",
+                data: JSON.stringify({ username: "{{ username }}", friend_username: friendUsername }),
+                success: function(response) {
+                    alert("Friend removed successfully!");
+                    location.reload();  // Reload the page to update the friends list
+                },
+                error: function(xhr, status, error) {
+                    alert("Error removing friend: " + xhr.responseText);
+                    }
+                });
+            }
+    }
+
+    function updateFriendsList(username) {
+    $.ajax({
+        url: "/list-friends/" + username,
+        type: "GET",
+        success: function(response) {
+            console.log("WE got it")
+            $(".friend-list").html(data);
+        },
+        error: function(xhr, status, error) {
+            alert("Error updating friend data: " + xhr.responseText);
             }
         });
     }
-}
+
+    $(document).ready(function() {
+        console.log("we made it!")
+        updateFriendsList(username);
+    });
 
 </script>
 {% endblock %}
