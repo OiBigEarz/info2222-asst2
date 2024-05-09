@@ -207,17 +207,20 @@
                 <ul>
                     {% for friend in friends %}
                     <li>
-                        {{ friend.username }}
+
+                        {% set user_type = friend.account_type if friend.account_type == 'Student' else friend.staff_type %}
+
+                        <p>{{ friend.username }} <i>({{user_type}})</i></p>
+
+                        
                         <button onclick="startChat('{{ friend.username }}')">Chat</button>
                         <button onclick="removeFriend('{{ friend.username }}')">Remove</button>
-                        <p>Online?: {{ friend.isActive }}</p>     
-                        <p>User Type: 
-                            {% if friend.account_type == 'Student' %}
-                                {{friend.account_type}} 
-                            {% else %}
-                                {{friend.staff_type}} 
-                            {% endif %}
-                        </p>   
+                        {% if friend.isActive%}
+                        <img src="static/images/greendot.png" alt="Active User" width="15" height="15"></img>
+                        {% else %}
+                        <img src="static/images/reddot.png" alt="Inactive User" width="15" height="15"></img>
+                        {% endif %}
+
 
                     </li>
                     {% endfor %}
