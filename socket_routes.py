@@ -59,7 +59,12 @@ def disconnect():
 def send(username, receiver, message, room_id):
     db.insert_message(username, receiver, room_id, message)
     emit("incoming", (f"{username}: {message}"), to=room_id)
-    
+
+@socketio.on("send lobby")
+def send(username, message):
+    emit("incoming lobby", (f"{username}: {message}"), broadcast = True)
+
+
 # join room event handler
 # sent when the user joins a room
 @socketio.on("join")

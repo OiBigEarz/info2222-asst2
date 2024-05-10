@@ -212,7 +212,6 @@
 
                         <p>{{ friend.username }} <i>({{user_type}})</i></p>
 
-                        
                         <button onclick="startChat('{{ friend.username }}')">Chat</button>
                         <button onclick="removeFriend('{{ friend.username }}')">Remove</button>
                         {% if friend.isActive%}
@@ -236,9 +235,9 @@
             </section>
             <section class="lobby-chat">
                 <h2>Lobby Chat</h2>
-                <div id="message_box" style="height: 300px; overflow-y: auto; border: 1px solid #ccc; margin-bottom: 10px;"></div>
-                <input id="message_input" placeholder="Type a message" onkeyup="if(event.keyCode === 13) sendMessage()">
-                <button onclick="sendMessage()">Send</button>
+                <div id="lobby_message_box" style="height: 300px; overflow-y: auto; border: 1px solid #ccc; margin-bottom: 10px;"></div>
+                <input id="lobby_message_input" placeholder="Type a message" onkeyup="if(event.keyCode === 13) sendMessageLobby()">
+                <button onclick="sendMessageLobby()">Send</button>
             </section>
             <section class="logout">
                 <button onclick="logoutSession()">Log out</button>
@@ -311,6 +310,28 @@
     socket.on("incoming", (msg, color="black") => {
         add_message(msg, color);
     })
+
+    socket.on("incoming lobby", (msg, color = "black") => {
+        lobby_add_message(msg, color);
+    })
+
+    function sendMessageLobby() {
+        const message = document.getElementById('lobby_message_input').value;
+        document.getElementById('lobby_message_input').value = ''; // Clear input after sending
+
+        // Retrieve the username from a global variable or hidden input if not available
+        const username = "{{ username }}";  // If you're using Jinja2 templating, otherwise set this from your logged-in user data
+
+        console.log("Sending message:", {username: username, message: message});
+        
+        // Append the message to the message box for immediate display
+        const messageBox = document.getElementById('lobby_message_box');
+        const msgElement = document.createElement('p');
+        messageBox.appendChild(msgElement);
+
+        // Correctly emit the socket event with all required parameters
+        socket.emit("send lobby", username, message);
+    }
     
     // we'll send the message to the server by emitting a "send" event
     function send() { // Not used?
@@ -364,6 +385,12 @@
     // called when an incoming message has reached a client
     function add_message(message, color) {
         let box = $("#message_box");
+        let child = $(`<p style="color:${color}; margin: 0px;"></p>`).text(message);
+        box.append(child);
+    }
+
+    function lobby_add_message(message, color) {
+        let box = $("#lobby_message_box");
         let child = $(`<p style="color:${color}; margin: 0px;"></p>`).text(message);
         box.append(child);
     }
@@ -494,38 +521,6 @@ function removeFriend(friendUsername) {
     }
 }
 
-    function updateFriendsList(username) {
-    $.ajax({
-        url: "/list-friends/" + username,
-        type: "GET",
-        success: function(response) {
-            console.log("WE got it")
-            $(".friend-list").html(data);
-        },
-        error: function(xhr, status, error) {
-            alert("Error updating friend data: " + xhr.responseText);
-            }
-        });
-    }
-
-    $(document).ready(function() {
-        console.log("we made it!")
-        updateFriendsList(username);
-    });
-
-    function updateFriendsList(username) {
-    $.ajax({
-        url: "/list-friends/" + username,
-        type: "GET",
-        success: function(response) {
-            console.log("WE got it")
-            $(".friend-list").html(data);
-        },
-        error: function(xhr, status, error) {
-            alert("Error updating friend data: " + xhr.responseText);
-            }
-        });
-    }
 
     // Function to update the username display
     function updateUsernameDisplay() {
@@ -734,10 +729,6 @@ function removeFriend(friendUsername) {
         }
     }
 
-    $(document).ready(function() {
-        console.log("we made it!")
-        updateFriendsList(username);
-    });
 
 </script>
 {% endblock %}
