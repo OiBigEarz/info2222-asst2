@@ -69,7 +69,7 @@ def signup_user():
     password = request.json.get("password")
     account_type = request.json.get("accountType")
     staff_type = request.json.get("staffType") if account_type == "Staff" else None
-
+    isMuted = False
     
     existing_user = db.get_user(username)
     if existing_user:
@@ -77,13 +77,19 @@ def signup_user():
     
     isActive = True
 
-    db.insert_user(username, password, isActive, account_type, staff_type)
+    db.insert_user(username, password, isActive, account_type, staff_type, isMuted)
     return url_for('home', username=username)
 
 
 # handler when a "404" error happens
 @app.errorhandler(404)
 def page_not_found(_):
+    
+    username = request.json.get("username")
+    if not username:
+        return "Invalid request", 400   
+    db.update_user_false(username)
+    
     return render_template('404.jinja'), 404
 
 # home page, where the messaging app is
@@ -104,6 +110,7 @@ def home():
     role = f"{user.account_type}" if not user.staff_type else f"{user.staff_type}"
 
     # Fetch friends and friend requests
+    allUsers = db.list_users()
     friends = db.list_friends(username)
     received_requests, sent_requests = db.list_friend_requests(username)
     
@@ -111,7 +118,7 @@ def home():
 
     return render_template("home.jinja", username=username, isActive = user.isActive, friends=friends,
                            received_requests=received_requests, sent_requests=sent_requests, 
-                           account_type = user.account_type, staff_type = user.staff_type)
+                           account_type = user.account_type, staff_type = user.staff_type, allUsers = allUsers, isMuted = user.isMuted)
 
 
 # Route to send a friend request
@@ -291,6 +298,28 @@ def logout_user():
         return "Invalid request", 400   
     db.update_user_false(username)
     return url_for("index")
+
+@app.route("/mute-user", methods=["POST"])
+def mute_user():
+    if not request.is_json:
+        abort(400)   
+    receiver = request.json.get("receiver")
+    if not receiver:
+        return "Invalid request", 400   
+    db.update_user_muting(receiver)
+    
+    return "Yep"
+
+@app.route("/unmute-user", methods=["POST"])
+def unmute_user():
+    if not request.is_json:
+        abort(400)   
+    receiver = request.json.get("receiver")
+    if not receiver:
+        return "Invalid request", 400   
+    db.update_user_unmuting(receiver)
+    
+    return "Yup"
 
 if __name__ == '__main__':
     socketio.run(app, host = 'localhost', port = 1204)

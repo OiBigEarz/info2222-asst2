@@ -27,12 +27,6 @@ def connect():
     if room_id is None or username is None:
         return
     
-    user = db.get_user(username)
-    user.isActive = True
-    
-    print("hi 1")
-    print(user.isActive)
-    
     # socket automatically leaves a room on client disconnect
     # so on client connect, the room needs to be rejoined
     join_room(int(room_id))
@@ -45,9 +39,8 @@ def disconnect():
     username = request.cookies.get("username")
     room_id = request.cookies.get("room_id")
     
-    user = db.get_user(username)
-    user.isActive = False
-    
+    db.update_user_false(username)
+
     if room_id is None or username is None:
         return
     
@@ -63,7 +56,6 @@ def send(username, receiver, message, room_id):
 @socketio.on("send lobby")
 def send(username, message):
     emit("incoming lobby", (f"{username}: {message}"), broadcast = True)
-
 
 # join room event handler
 # sent when the user joins a room
@@ -100,3 +92,7 @@ def leave(username, room_id):
     emit("incoming", (f"{username} has left the room.", "red"), to=room_id)
     leave_room(room_id)
     room.leave_room(username)
+    
+@socketio.on("userMuted")
+def muted(username):
+    emit(f"You are currently muted {username}")

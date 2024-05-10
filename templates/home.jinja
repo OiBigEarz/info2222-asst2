@@ -182,11 +182,27 @@
         background-color: #f44336; /* Red background for closing action */
     }
 
+    .dropdown {
+        position: relative;
+        display: inline-block;
+    }
+      
+    .dropdown-content {
+        display: none;
+        position: absolute;
+        background-color: #f9f9f9;
+        min-width: 160px;
+        box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+        padding: 12px 16px;
+        z-index: 1;
+    }
+
     </style>
 
-<div id="main-container">
+    <div id="main-container">
     <div id="user-info">
-        <span id="username-display">User: "{{ username }}"</span> | <span id="role-display">{{ role }}</span>
+        {% set user_role = account_type if account_type == 'Student' else staff_type %}
+        <span id="username-display">User: "{{ username }}"</span> | <span id="role-display">{{ user_role }}</span>
     </div>
     
     <div id="article-section">
@@ -204,27 +220,34 @@
             </div>
             <section class="friend-list">
                 <h2>Friends</h2>
-                <ul>
-                    {% for friend in friends %}
-                    <li>
+                    <ul>
+                        {% for friend in friends %}
+                        <li>
 
-                        {% set user_type = friend.account_type if friend.account_type == 'Student' else friend.staff_type %}
+                            {% set user_type = friend.account_type if friend.account_type == 'Student' else friend.staff_type %}
 
-                        <p>{{ friend.username }} <i>({{user_type}})</i></p>
+                            <p>{{ friend.username }} <i>({{user_type}})</i></p>
 
-                        <button onclick="startChat('{{ friend.username }}')">Chat</button>
-                        <button onclick="removeFriend('{{ friend.username }}')">Remove</button>
-                        {% if friend.isActive%}
-                        <img src="static/images/greendot.png" alt="Active User" width="15" height="15"></img>
-                        {% else %}
-                        <img src="static/images/reddot.png" alt="Inactive User" width="15" height="15"></img>
-                        {% endif %}
-
-
-                    </li>
-                    {% endfor %}
-                </ul>
+                            <button onclick="startChat('{{ friend.username }}')">Chat</button>
+                            <button onclick="removeFriend('{{ friend.username }}')">Remove</button>
+                            {% if friend.isActive%}
+                            <img src="static/images/greendot.png" alt="Active User" width="15" height="15"></img>
+                            {% else %}
+                            <img src="static/images/reddot.png" alt="Inactive User" width="15" height="15"></img>
+                            {% endif %}
+                        </li>
+                        {% endfor %}
+                    </ul>
             </section>
+            
+            {% if account_type == 'Staff' %}
+            <section class = "staff-tools">
+                <h2>Staff Tools</h2>
+                <p>Mute User</p><input id="userToMute" placeholder="Enter Username to Mute">
+                <button onclick="muteUser()">Mute</button> <button onclick="unmuteUser()">Unmute</button>
+            </section>    
+            {% endif %}
+
             <section class="friend-requests">
                 <h2>Friend Requests</h2>
                 <ul>
@@ -311,26 +334,65 @@
         add_message(msg, color);
     })
 
-    socket.on("incoming lobby", (msg, color = "black") => {
-        lobby_add_message(msg, color);
+    socket.on("incoming lobby", (msg, color = "black") => {        
+        lobby_add_message(msg, color);        
     })
 
+    function muteUser(userToMute) {
+        const receiver = $("#userToMute").val(); 
+        $.ajax({
+            url: "/mute-user",
+            type: "POST",
+            contentType: "application/json",
+            data: JSON.stringify({receiver: receiver}),
+            success: function(response) {
+                alert("User Muted!");
+            },
+            error: function(xhr, status, error) {
+                alert("Error Muting User: " + xhr.responseText);
+            }
+        });
+    }
+
+    function unmuteUser(userToMute) {
+        const receiver = $("#userToMute").val(); 
+        $.ajax({
+            url: "/unmute-user",
+            type: "POST",
+            contentType: "application/json",
+            data: JSON.stringify({receiver: receiver }),
+            success: function(response) {
+                alert("User Unmuted!");
+            },
+            error: function(xhr, status, error) {
+                alert("Error Unmuting User: " + xhr.responseText);
+            }
+        });
+    }
+
     function sendMessageLobby() {
-        const message = document.getElementById('lobby_message_input').value;
-        document.getElementById('lobby_message_input').value = ''; // Clear input after sending
 
-        // Retrieve the username from a global variable or hidden input if not available
-        const username = "{{ username }}";  // If you're using Jinja2 templating, otherwise set this from your logged-in user data
+        {% if isMuted %} {
+            alert("You are muted!");
+        }
+        {% else %} {
+            const message = document.getElementById('lobby_message_input').value;
+            document.getElementById('lobby_message_input').value = ''; // Clear input after sending
 
-        console.log("Sending message:", {username: username, message: message});
-        
-        // Append the message to the message box for immediate display
-        const messageBox = document.getElementById('lobby_message_box');
-        const msgElement = document.createElement('p');
-        messageBox.appendChild(msgElement);
+            // Retrieve the username from a global variable or hidden input if not available
+            const username = "{{ username }}";  // If you're using Jinja2 templating, otherwise set this from your logged-in user data
 
-        // Correctly emit the socket event with all required parameters
-        socket.emit("send lobby", username, message);
+            console.log("Sending message:", {username: username, message: message});
+            
+            // Append the message to the message box for immediate display
+            const messageBox = document.getElementById('lobby_message_box');
+            const msgElement = document.createElement('p');
+            messageBox.appendChild(msgElement);
+
+            // Correctly emit the socket event with all required parameters
+            socket.emit("send lobby", username, message);
+        }
+        {% endif %}
     }
     
     // we'll send the message to the server by emitting a "send" event
@@ -486,41 +548,47 @@
     }
 
     function sendMessage(friendUsername) {
-        const message = document.getElementById('message_input').value;
-        document.getElementById('message_input').value = ''; // Clear input after sending
 
-        // Retrieve the username from a global variable or hidden input if not available
-        const username = "{{ username }}";  // If you're using Jinja2 templating, otherwise set this from your logged-in user data
+        {% if isMuted %} {
+            alert("You are muted!");
+        }
+        {% else %} {
+            const message = document.getElementById('message_input').value;
+            document.getElementById('message_input').value = ''; // Clear input after sending
 
-        console.log("Sending message:", { username: username, receiver: friendUsername, message: message, room_id: room_id });
-        
-        // Append the message to the message box for immediate display
-        const messageBox = document.getElementById('message_box');
-        const msgElement = document.createElement('p');
-        messageBox.appendChild(msgElement);
+            // Retrieve the username from a global variable or hidden input if not available
+            const username = "{{ username }}";  // If you're using Jinja2 templating, otherwise set this from your logged-in user data
 
-        // Correctly emit the socket event with all required parameters
-        socket.emit("send", username, friendUsername, message, room_id);
+            console.log("Sending message:", { username: username, receiver: friendUsername, message: message, room_id: room_id });
+            
+            // Append the message to the message box for immediate display
+            const messageBox = document.getElementById('message_box');
+            const msgElement = document.createElement('p');
+            messageBox.appendChild(msgElement);
+
+            // Correctly emit the socket event with all required parameters
+            socket.emit("send", username, friendUsername, message, room_id);
+        }
+        {% endif %}
     }
 
-function removeFriend(friendUsername) {
-    if (confirm("Are you sure you want to remove " + friendUsername + " as a friend?")) {
-        $.ajax({
-            url: "/delete-friend",
-            type: "POST",
-            contentType: "application/json",
-            data: JSON.stringify({ username: "{{ username }}", friend_username: friendUsername }),
-            success: function(response) {
-                alert("Friend removed successfully!");
-                location.reload();  // Reload the page to update the friends list
-            },
-            error: function(xhr, status, error) {
-                alert("Error removing friend: " + xhr.responseText);
-            }
-        });
+    function removeFriend(friendUsername) {
+        if (confirm("Are you sure you want to remove " + friendUsername + " as a friend?")) {
+            $.ajax({
+                url: "/delete-friend",
+                type: "POST",
+                contentType: "application/json",
+                data: JSON.stringify({ username: "{{ username }}", friend_username: friendUsername }),
+                success: function(response) {
+                    alert("Friend removed successfully!");
+                    location.reload();  // Reload the page to update the friends list
+                },
+                error: function(xhr, status, error) {
+                    alert("Error removing friend: " + xhr.responseText);
+                }
+            });
+        }
     }
-}
-
 
     // Function to update the username display
     function updateUsernameDisplay() {
@@ -679,8 +747,6 @@ function removeFriend(friendUsername) {
         .catch(error => console.error('Error loading comments:', error));
     }
     
-    
-    
     function editArticle(articleId) {
         const title = prompt("Enter new title:");
         const content = prompt("Enter new content:");
@@ -728,7 +794,6 @@ function removeFriend(friendUsername) {
             });
         }
     }
-
 
 </script>
 {% endblock %}

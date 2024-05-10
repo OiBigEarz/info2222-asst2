@@ -23,9 +23,9 @@ engine = create_engine("sqlite:///database/main.db", echo=False)
 Base.metadata.create_all(engine)
 
 # inserts a user to the database
-def insert_user(username: str, password: str, isActive: bool, account_type: str, staff_type: str = None):
+def insert_user(username: str, password: str, isActive: bool, account_type: str, staff_type: None, isMuted: bool):
     with Session(engine) as session:
-        user = User(username=username, password=password, isActive = isActive, account_type=account_type, staff_type=staff_type)
+        user = User(username=username, password=password, isActive = isActive, account_type=account_type, staff_type=staff_type, isMuted = isMuted)
         session.add(user)
         session.commit()
 
@@ -75,6 +75,10 @@ def list_friends(username: str):
                         'staff_type': friend.user2.staff_type
                     })
             return friendInfo
+
+def list_users():
+    with Session(engine) as session:
+        return session.query(User).all()
 
 def list_friend_requests(username: str):
     with Session(engine) as session:
@@ -199,3 +203,17 @@ def update_user_true(username: str):
          if user:
              user.isActive = True
              session.commit()
+             
+def update_user_muting(username: str):
+     with Session(engine) as session:
+         user = session.get(User, username)
+         if user:
+             user.isMuted = True
+             session.commit()
+
+def update_user_unmuting(username: str):
+     with Session(engine) as session:
+         user = session.get(User, username)
+         if user:
+             user.isMuted = False
+             session.commit()            

@@ -34,6 +34,7 @@ class User(Base):
     staff_type = Column(String)    # 'Academic', 'Administrative', 'Admin', or None
     articles = relationship("Article", back_populates="author")
     comments = relationship("Comment", back_populates="author")
+    isMuted = Column(Boolean, default = False)
 
 # stateful counter used to generate the room id
 class Counter():
