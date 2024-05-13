@@ -57,6 +57,10 @@ def send(username, receiver, message, room_id):
 def send(username, message):
     emit("incoming lobby", (f"{username}: {message}"), broadcast = True)
 
+@socketio.on("mute user")
+def send():
+    emit("mute the user")
+
 # join room event handler
 # sent when the user joins a room
 @socketio.on("join")

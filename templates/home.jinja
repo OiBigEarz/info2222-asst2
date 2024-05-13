@@ -334,9 +334,30 @@
         add_message(msg, color);
     })
 
+
     socket.on("incoming lobby", (msg, color = "black") => {        
         lobby_add_message(msg, color);        
     })
+
+    socket.on("mute-the-user", (data) => {       
+        const receiver = data.receiver;
+        const username = "{{ username }}";
+
+        if (username === receiver) {
+            alert("You have been muted");
+            window.location.reload(); 
+        }   
+    });
+
+    socket.on("unmute-the-user", (data) => {       
+        const receiver = data.receiver;
+        const username = "{{ username }}";
+
+        if (username === receiver) {
+            alert("You have been unmuted");
+            window.location.reload(); 
+        }   
+    });
 
     function muteUser(userToMute) {
         const receiver = $("#userToMute").val(); 

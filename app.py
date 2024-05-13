@@ -307,7 +307,8 @@ def mute_user():
     if not receiver:
         return "Invalid request", 400   
     db.update_user_muting(receiver)
-    
+
+    socketio.emit('mute-the-user', {'receiver': receiver})    
     return "Yep"
 
 @app.route("/unmute-user", methods=["POST"])
@@ -318,7 +319,8 @@ def unmute_user():
     if not receiver:
         return "Invalid request", 400   
     db.update_user_unmuting(receiver)
-    
+
+    socketio.emit('unmute-the-user', {'receiver': receiver})    
     return "Yup"
 
 if __name__ == '__main__':
