@@ -334,7 +334,6 @@
         add_message(msg, color);
     })
 
-
     socket.on("incoming lobby", (msg, color = "black") => {        
         lobby_add_message(msg, color);        
     })
@@ -685,6 +684,9 @@
     
     
     function submitPost() {
+        {% if isMuted %} 
+        alert("Banned From Posting")
+        {% else %}
         var title = document.getElementById('post-title').value;
         var content = document.getElementById('post-content').value;
     
@@ -709,6 +711,7 @@
         })
         .then(data => console.log('Article posted:', data))
         .catch(error => console.error('Error posting article:', error));
+        {% endif %}
     }
     
     
@@ -727,6 +730,9 @@
     }
     
     function submitComment(button, articleId) {
+        {% if isMuted %} 
+        alert("Banned From Posting")
+        {% else %}
         var commentBox = button.previousElementSibling;
         var comment = commentBox.value;
         fetch('/comments', {
@@ -747,6 +753,7 @@
             fetchComments(articleId); // Refresh comments display
         })
         .catch(error => console.error('Error posting comment:', error));
+        {% endif %}
     }
     
     function fetchComments(articleId) {
