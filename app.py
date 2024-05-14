@@ -9,6 +9,7 @@ from flask_socketio import SocketIO
 import db
 import secrets
 from flask import jsonify
+from datetime import datetime
 
 
 # import logging
@@ -186,8 +187,9 @@ def create_article():
     title = request.json.get("title")
     content = request.json.get("content")
     username = request.json.get("username")
+    date = datetime.now()
 
-    db.insert_article(username, title, content)
+    db.insert_article(username, title, content, date)
     return jsonify({"message": "Article created successfully!"}), 201
 
 @app.route('/articles', methods=['GET'])
@@ -199,7 +201,8 @@ def get_articles():
             articles_data.append({
                 "id": article.id, 
                 "title": article.title, 
-                "content": article.content, 
+                "content": article.content,
+                "date": article.date, 
                 "author_username": article.author.username, 
                 "author_role": article.author.account_type if article.author else 'Unknown'
             })
@@ -208,6 +211,7 @@ def get_articles():
                 "id": article.id, 
                 "title": article.title, 
                 "content": article.content, 
+                "date": article.date, 
                 "author_username": "Unknown", 
                 "author_role": "Unknown"
             })

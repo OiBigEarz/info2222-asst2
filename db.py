@@ -127,9 +127,9 @@ def update_user_true(username: str):
              user.isActive = True
              session.commit()     
 
-def insert_article(username, title, content):
+def insert_article(username, title, content, date):
     with Session(engine) as session:
-        article = Article(title=title, content=content, author_username=username)
+        article = Article(title=title, content=content, author_username=username, date = date)
         session.add(article)
         session.commit()
 

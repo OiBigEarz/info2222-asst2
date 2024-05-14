@@ -96,7 +96,6 @@ class Message(Base):
     room_id = Column(Integer)
     text = Column(String)
     timestamp = Column(DateTime, default=datetime.utcnow)
-
     sender_user = relationship("User", foreign_keys=[sender])
     receiver_user = relationship("User", foreign_keys=[receiver])
 
@@ -105,9 +104,11 @@ class Article(Base):
     id = Column(Integer, primary_key=True)
     title = Column(String)
     content = Column(String)
+    date = Column(DateTime, default = datetime.utcnow)
     author_username = Column(String, ForeignKey('user.username'))
     author = relationship("User", back_populates="articles")
     comments = relationship("Comment", back_populates="article")
+
 
 class Comment(Base):
     __tablename__ = 'comment'

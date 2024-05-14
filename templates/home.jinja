@@ -662,6 +662,7 @@
                         <article id="article-${article.id}">
                             <div class='article-title'>${article.title}</div>
                             <div class='article-content'>${article.content}</div>
+                            <div class='article-date'>${article.date}</div>
                             <div class='post-user-info'>Posted by: ${article.author_username} (${article.author_role})</div>
                             <button class="expand-article-btn" onclick="expandArticle(this, ${article.id})">Read More...</button>
                             ${canEdit ? `<button onclick="editArticle(${article.id})">Edit</button>` : ''}
@@ -689,7 +690,6 @@
         {% else %}
         var title = document.getElementById('post-title').value;
         var content = document.getElementById('post-content').value;
-    
         fetch('/articles', {
             method: 'POST',
             headers: {
