@@ -101,12 +101,11 @@ class Message(Base):
 
 class Assignment(Base):
     __tablename__ = 'assignment'
-
     id = Column(Integer, primary_key=True)
     title = Column(String)
     content = Column(String)
-    due_date = Column(DateTime, default = datetime.utcnow)
     weight = Column(Integer)
+    filename = Column(String)
 
 class Article(Base):
     __tablename__ = 'article'

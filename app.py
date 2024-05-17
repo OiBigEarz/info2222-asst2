@@ -10,6 +10,9 @@ import db
 import secrets
 from flask import jsonify
 from datetime import datetime
+import os
+from werkzeug.utils import secure_filename
+
 
 
 # import logging
@@ -18,10 +21,15 @@ from datetime import datetime
 # log = logging.getLogger('werkzeug')
 # log.setLevel(logging.ERROR)
 
+UPLOAD_FOLDER = "static"
+ALLOWED_EXTENSIONS = {"pdf"}
+
 app = Flask(__name__)
 
 # secret key used to sign the session cookie
 app.config['SECRET_KEY'] = secrets.token_hex()
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+
 socketio = SocketIO(app)
 
 # don't remove this!!
@@ -215,6 +223,7 @@ def get_articles():
                 "author_username": "Unknown", 
                 "author_role": "Unknown"
             })
+
     return jsonify(articles_data)
 
 @app.route('/comments', methods=['POST'])
@@ -327,5 +336,49 @@ def unmute_user():
     socketio.emit('unmute-the-user', {'receiver': receiver})    
     return "Yup"
 
+@app.route("/post-assignment", methods = ["POST"])
+def post_assignment():
+
+    print("We made it to here!")
+
+    title = request.form.get("title")
+    content = request.form.get("content")
+    weighting = request.form.get("weighting")
+    asstFilename = request.form.get("filename")
+
+    db.insert_assignment(title = title, content = content, 
+                         weight = weighting, filename = asstFilename)
+    
+
+    file = request.files["file"]
+
+    if file:
+        filename = secure_filename(file.filename)
+        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+    
+    return "Ahuh"
+
+@app.route('/assignments', methods=['GET'])
+def get_assignments():
+    assignments = db.get_assignments()
+    assignmentsdata = []
+    for assignment in assignments:
+        assignmentsdata.append({
+            "id": assignment.id, 
+            "title": assignment.title, 
+            "content": assignment.content,
+            "weight": assignment.weight, 
+            "filename": assignment.filename 
+        })       
+    return jsonify(assignmentsdata)
+
+@app.route('/assignments/<int:assignment_id>', methods=['DELETE'])
+def delete_assignment(assignment_id):
+    try:
+        db.delete_assignment(assignment_id)
+        return jsonify({"message": "Assignment deleted successfully!"}), 200
+    except Exception as e:
+        return jsonify({"message": str(e)}), 500
+    
 if __name__ == '__main__':
     socketio.run(app, host = 'localhost', port = 1204)

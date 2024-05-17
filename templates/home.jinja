@@ -10,10 +10,12 @@
         background-size: cover;
         font-family: 'Arial', sans-serif;
     }
+    
     #main-container {
         display: flex;
         margin: 20px;
     }
+
     #article-section {
         width: 70%;
         padding: 20px;
@@ -25,8 +27,8 @@
         padding: 20px;
         overflow-y: auto;    
         background: rgba(255, 255, 255, 0.9);
-   
     }
+
     #chat-section {
         width: 30%;
         background: rgba(255, 255, 255, 0.9);
@@ -60,14 +62,27 @@
         border-radius: 5px;
         box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     }
+
+    assignment {
+        background: #fff;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+
     .article-title, .article-content, h2, ul {
         font-size: 16px;
         color: #333;
     }
+
+    .assignment-title, .assignment-content, h2, ul {
+        font-size: 16px;
+        color: #333;
+    }   
+
     .controls {
         margin-bottom: 20px;
         text-align: center;
     }
+
     input, button {
         padding: 10px;
         margin: 5px;
@@ -75,6 +90,7 @@
         border: 1px solid #ccc;
         font-size: 14px;
     }
+
     button {
         background-color: #4CAF50;
         color: white;
@@ -217,8 +233,7 @@
     <div id="assignment-section">
         <h1>Assignments</h1>
         {% if staff_type == 'Administrative' %}
-        <button id="post-assignment-btn">Create New Assignment</button>
-
+        <button id="assignment-btn">Create New Assignment</button>
         {% endif %}
     </div>
 
@@ -287,22 +302,39 @@
         </div>
     </div>
 
-    <div id="post-modal" class="modal">
+<div id="post-assign-modal" class="modal">
     <div class="modal-content">
-        <span class="close" onclick="closeModal()">&times;</span>
-        <form id="post-form">
-            <input type="text" id="post-title" placeholder="Title" required>
-            <textarea id="post-content" placeholder="Write your article..." required></textarea>
-            <button type="button" onclick="submitPost()">Post</button>
-        </form>
+        <div class="modal-header">
+            <h4 class="modal-title">Create New Assignment</h4>
+            <span class="close" onclick="closeAsstModal()">&times;</span>
+            <form id="post-asst-form" enctype="multipart/form-data">
+                <input type="text" id="asst-title" placeholder="Title" required>
+                <textarea id="asst-content" placeholder="Write your assignment content..." required></textarea>
+                <br><b>Upload Assignment PDF</b>
+                <input type="file" id="file" accept="application/pdf">
+                <input type="text" id="weighting" placeholder="Assignment Weighting" style="width: 200px;" required>
+                <button type="button" onclick="submitAsst()">Post</button>
+            </form>
+        </div>
     </div>
 
+    <div id="post-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <form id="post-form">
+                <input type="text" id="post-title" placeholder="Title" required>
+                <textarea id="post-content" placeholder="Write your article..." required></textarea>
+                <button type="button" onclick="submitPost()">Post</button>
+            </form>
+        </div>
+    </div>
+</div>
 </div>
 
-</div>
 
 <script src="/static/js/libs/socket.io.min.js"></script>
 <script>
+
     let room_id = 0;
     let username = "{{ username }}";
     let role = "{{ role }}";
@@ -327,7 +359,10 @@
     $(document).ready(() => {
         updateUsernameDisplay();
         setupModalButton();
+        setupAssignmentModalButton();
         document.addEventListener('DOMContentLoaded', fetchArticles);
+        document.addEventListener('DOMContentLoaded', fetchAssignments);
+
         // room_id is undefined if the user hasn't joined a room
         // we early return in this case
         if (Cookies.get("room_id") == undefined) {
@@ -637,9 +672,39 @@
     
         document.addEventListener('DOMContentLoaded', function() {
             setupModalButton();
+            setupAssignmentModalButton();
             fetchArticles();
+            fetchAssignments();
+
         });
-    
+
+        function setupAssignmentModalButton() {
+            var btn_asst = document.getElementById('assignment-btn');
+            if (btn_asst) {
+                btn_asst.addEventListener('click', showPostAsstModal);
+            } else {
+                console.error('Post article button not found.');
+            }            
+        }
+
+         function showPostAsstModal() {
+            var modal_asst = document.getElementById('post-assign-modal');
+            if (modal_asst) {
+                modal_asst.style.display = 'block';
+            } else {
+                console.error('Modal element not found! Check if ID is correct and element exists when this code runs.');
+            }
+        }
+
+        function closeAsstModal() {
+            var modal_asst = document.getElementById('post-assign-modal');
+            if (modal_asst) {
+                modal_asst.style.display = 'none';
+            } else {
+                console.error('Modal element not found!');
+            }
+        }
+
         function setupModalButton() {
             var btn = document.getElementById('post-article-btn');
             if (btn) {
@@ -665,6 +730,35 @@
             } else {
                 console.error('Modal element not found!');
             }
+        }
+
+        function fetchAssignments() {
+            fetch('/assignments')
+            .then(response => response.json())
+            .then(assignments => {
+                const asstContainer = document.getElementById('assignment-section');
+                assignments.forEach(assignment => {  
+                const canEdit = (role !== 'Student');
+                const canDelete = (role !== 'Student');
+                const assignmentHtml = `
+                    <assignment id="assignment-${assignment.id}">
+                        <div class='assignment-title'><h3>${assignment.title}</h3></div>
+                        <div class='assignment-content'>${assignment.content}</div>
+                        <div class='assignment-weight'>${assignment.weight}%</div>
+                        <div class='assignment-file'>
+                            <a href="/static/${assignment.filename}" download="${assignment.filename}">${assignment.filename}</a>
+                        </div>
+                        {% if account_type != 'Student' %}
+                        ${canEdit ? `<button onclick="editAssignment(${assignment.id})">Edit</button>` : ''}
+                        ${canDelete ? `<button onclick="deleteAssignment(${assignment.id})">Delete</button>` : ''}
+                        {% endif %}
+                    </assignment> `;   
+                asstContainer.insertAdjacentHTML('beforeend', assignmentHtml);
+                });
+            })
+            .catch(error => console.error('Error loading Assignments:', error));
+
+
         }
     
         function fetchArticles() {
@@ -702,7 +796,37 @@
             .catch(error => console.error('Error loading articles:', error));
         }
     
-    
+    function submitAsst() {
+        var title = document.getElementById('asst-title').value;
+        var content = document.getElementById('asst-content').value;
+        var fileInput = document.getElementById('file');
+        var file = fileInput.files[0];
+        var filename = fileInput.files[0].name;
+        var weighting = document.getElementById('weighting').value;
+
+        var formData = new FormData();
+
+        formData.append('title', title);
+        formData.append('content', content);
+        formData.append('file', file);
+        formData.append('filename', filename)
+        formData.append('weighting', weighting);
+        
+        fetch('/post-assignment', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => {
+            if (response.ok) {
+                fetchAssignments(); // Refresh the list of articles
+                closeAsstModal(); 
+                return response.json();
+            }
+            throw new Error('Network response was not ok.');
+        })
+        .then(data => console.log('Assignment posted:', data))
+        .catch(error => console.error('Error posting assignment:', error));
+    }
     
     function submitPost() {
         {% if isMuted %} 
@@ -794,7 +918,41 @@
         })
         .catch(error => console.error('Error loading comments:', error));
     }
+
+    function editAssignment(assignmentId) {
+        const title = prompt("Enter new title:");
+        const content = prompt("Enter new content:");
+        const weight = prompt("Enter new weighting:");
+        fetch(`/assignments/${assignmentId}`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({title: title, content: content, weight: weight})
+        })
+        .then(response => response.json())
+        .then(data => {
+            alert(data.message);
+            fetchAssignments();  // Refresh the articles list
+        });
+    }
     
+    function deleteAssignment(assignmentId) {
+        fetch(`/assignments/${assignmentId}`, {
+            method: 'DELETE'
+        })
+        .then(response => {
+            if (response.ok) {
+                alert("Assignment Deleted");
+                fetchAssignments(); 
+            } else {
+                alert("Error Deleting Assignment");
+            }
+    })
+    .catch(error => {
+        console.error('Error deleting assignment:', error);
+        alert("Error deleting assignment");
+    });
+}
+
     function editArticle(articleId) {
         const title = prompt("Enter new title:");
         const content = prompt("Enter new content:");

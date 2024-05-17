@@ -127,15 +127,19 @@ def update_user_true(username: str):
              user.isActive = True
              session.commit()     
 
-def insert_assignment(title, content, due_date, weight):
+def insert_assignment(title, content, weight, filename):
     with Session(engine) as session:
-        assignment = Assignment(title = title, content=content, due_date = due_date, weight = weight)
+        assignment = Assignment(title = title, content=content,  weight = weight, filename = filename)
         session.add(assignment)
         session.commit()   
 
 def get_assignments():
     with Session(engine) as session:
         return session.query(Assignment).all()
+
+def get_assignment(assignment_id):
+    with Session(engine) as session:
+        return session.query(Assignment).filter_by(id = assignment_id).one_or_none()
 
 def update_assignment(assgn_id, title, content, weight):
     with Session(engine) as session:
@@ -169,8 +173,7 @@ def get_articles():
 
 def get_article(article_id):
     with Session(engine) as session:
-        return session.query(Article).filter_by(id=article_id).one_or_none()
-
+        return session.query(Article).filter_by(id = article_id).one_or_none()
 
 def insert_comment(username, article_id, content):
     with Session(engine) as session:
@@ -205,7 +208,7 @@ def update_article(article_id, new_title, new_content):
 
 def delete_article(article_id):
     with Session(engine) as session:
-        article = session.query(Article).filter_by(id=article_id).one_or_none()
+        article = session.query(Article).filter_by(id = article_id).one_or_none()
         if article:
             session.delete(article)
             session.commit()
