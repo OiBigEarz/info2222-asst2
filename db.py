@@ -127,6 +127,36 @@ def update_user_true(username: str):
              user.isActive = True
              session.commit()     
 
+def insert_assignment(title, content, due_date, weight):
+    with Session(engine) as session:
+        assignment = Assignment(title = title, content=content, due_date = due_date, weight = weight)
+        session.add(assignment)
+        session.commit()   
+
+def get_assignments():
+    with Session(engine) as session:
+        return session.query(Assignment).all()
+
+def update_assignment(assgn_id, title, content, weight):
+    with Session(engine) as session:
+        assignment = session.query(Assignment).filter_by(id = assgn_id).one_or_none()
+        if assignment:
+            assignment.title = title
+            assignment.content = content
+            assignment.weight = weight
+            session.commit()
+        else:
+            raise ValueError("Assignment not found")
+
+def delete_assignment(assgn_id):
+    with Session(engine) as session:
+        assignment = session.query(Assignment).filter_by(id = assgn_id).one_or_none()
+        if assignment:
+            session.delete(assignment)
+            session.commit()
+        else:
+            raise ValueError("Assignment not found")
+
 def insert_article(username, title, content, date):
     with Session(engine) as session:
         article = Article(title=title, content=content, author_username=username, date = date)

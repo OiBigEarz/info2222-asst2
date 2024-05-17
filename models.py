@@ -99,6 +99,15 @@ class Message(Base):
     sender_user = relationship("User", foreign_keys=[sender])
     receiver_user = relationship("User", foreign_keys=[receiver])
 
+class Assignment(Base):
+    __tablename__ = 'assignment'
+
+    id = Column(Integer, primary_key=True)
+    title = Column(String)
+    content = Column(String)
+    due_date = Column(DateTime, default = datetime.utcnow)
+    weight = Column(Integer)
+
 class Article(Base):
     __tablename__ = 'article'
     id = Column(Integer, primary_key=True)

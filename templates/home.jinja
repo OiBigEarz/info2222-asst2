@@ -19,6 +19,14 @@
         padding: 20px;
         overflow-y: auto;
     }
+
+    #assignment-section {
+        width: 20%;
+        padding: 20px;
+        overflow-y: auto;    
+        background: rgba(255, 255, 255, 0.9);
+   
+    }
     #chat-section {
         width: 30%;
         background: rgba(255, 255, 255, 0.9);
@@ -76,6 +84,7 @@
         list-style-type: none;
         padding: 0;
     }
+
     li {
         padding: 5px;
         margin-bottom: 5px;
@@ -204,15 +213,25 @@
         {% set user_role = account_type if account_type == 'Student' else staff_type %}
         <span id="username-display">User: "{{ username }}"</span> | <span id="role-display">{{ user_role }}</span>
     </div>
-    
+
+    <div id="assignment-section">
+        <h1>Assignments</h1>
+        {% if staff_type == 'Administrative' %}
+        <button id="post-assignment-btn">Create New Assignment</button>
+
+        {% endif %}
+    </div>
+
     <div id="article-section">
         <h1>Articles</h1>
         <button id="post-article-btn">Post New Article</button>
     </div>
 
+
     <div id="chat-section">
         <!-- Placeholder for dynamic content, initially loads friend management -->
         <div id="dynamic-content">
+            
             <!-- Initial content loaded here will be friend management -->
             <div class="message-groups">
                 <input id="friend_username" placeholder="Enter username to add">
@@ -239,7 +258,7 @@
                         {% endfor %}
                     </ul>
             </section>
-            
+
             {% if account_type == 'Staff' %}
             <section class = "staff-tools">
                 <h2>Staff Tools</h2>
@@ -277,6 +296,7 @@
             <button type="button" onclick="submitPost()">Post</button>
         </form>
     </div>
+
 </div>
 
 </div>
