@@ -15,6 +15,7 @@
         display: flex;
         margin: 20px;
     }
+    
 
     #article-section {
         width: 70%;
@@ -23,7 +24,7 @@
     }
 
     #assignment-section {
-        width: 20%;
+        width: 10%;
         padding: 20px;
         overflow-y: auto;    
         background: rgba(255, 255, 255, 0.9);
@@ -73,10 +74,22 @@
         color: #333;
     }
 
-    .assignment-title, .assignment-content, h2, ul {
+    .assignment-title, .assignment-content, h3, ul {
         font-size: 16px;
         color: #333;
+        text-align: center;
     }   
+
+    .assignment-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    }
+
+    .assignment-container button {
+    margin-top: 60px; 
+    }
 
     .controls {
         margin-bottom: 20px;
@@ -120,6 +133,30 @@
     }
 
     .modal-content {
+        position: absolute; /* Position it below the button */
+        top: 50px; /* Adjust this value to position the modal below the button */
+        left: 50%;
+        transform: translateX(-50%); /* Center the modal horizontally */
+        background-color: #fefefe;
+        padding: 20px;
+        border: 1px solid #888;
+        width: 80%; /* Relative to the article-section */
+        box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2), 0 6px 20px 0 rgba(0,0,0,0.19);
+        border-radius: 10px;
+    }
+
+    .modal2 {
+        display: none; /* Hidden by default */
+        position: absolute; /* Positioned relative to the #article-section */
+        z-index: 2; /* Sits on top */
+        left: 0;
+        top: 0;
+        width: 100%; /* Full width of the assingment-section */
+        height: 100%; /* Full height of the article-section */
+        background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+    }
+
+    .modal2-content {
         position: absolute; /* Position it below the button */
         top: 50px; /* Adjust this value to position the modal below the button */
         left: 50%;
@@ -231,7 +268,7 @@
     </div>
 
     <div id="assignment-section">
-        <h1>Assignments</h1>
+        <h2 id = "assingment-title">Assignments</h2>
         {% if staff_type == 'Administrative' %}
         <button id="assignment-btn">Create New Assignment</button>
         {% endif %}
@@ -302,10 +339,10 @@
         </div>
     </div>
 
-<div id="post-assign-modal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h4 class="modal-title">Create New Assignment</h4>
+<div id="post-assign-modal" class="modal2">
+    <div class="modal2-content">
+        <div class="modal2-header">
+            <h4 class="modal2-title">Create New Assignment</h4>
             <span class="close" onclick="closeAsstModal()">&times;</span>
             <form id="post-asst-form" enctype="multipart/form-data">
                 <input type="text" id="asst-title" placeholder="Title" required>
@@ -317,17 +354,18 @@
             </form>
         </div>
     </div>
-
-    <div id="post-modal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal()">&times;</span>
-            <form id="post-form">
-                <input type="text" id="post-title" placeholder="Title" required>
-                <textarea id="post-content" placeholder="Write your article..." required></textarea>
-                <button type="button" onclick="submitPost()">Post</button>
-            </form>
-        </div>
     </div>
+
+<div id="post-modal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal()">&times;</span>
+        <form id="post-form">
+            <input type="text" id="post-title" placeholder="Title" required>
+            <textarea id="post-content" placeholder="Write your article..." required></textarea>
+            <button type="button" onclick="submitPost()">Post</button>
+        </form>
+    </div>
+</div>
 </div>
 </div>
 
@@ -339,6 +377,7 @@
     let username = "{{ username }}";
     let role = "{{ role }}";
     document.addEventListener('DOMContentLoaded', fetchArticles);
+    document.addEventListener('DOMContentLoaded', fetchAssignments);
 
     // when the user presses the "Enter" key inside of the "message box", 
     // the message is sent to the server
@@ -674,7 +713,6 @@
             setupModalButton();
             setupAssignmentModalButton();
             fetchArticles();
-            fetchAssignments();
 
         });
 
@@ -742,12 +780,14 @@
                 const canDelete = (role !== 'Student');
                 const assignmentHtml = `
                     <assignment id="assignment-${assignment.id}">
+                    <div class="assignment-container">
                         <div class='assignment-title'><h3>${assignment.title}</h3></div>
                         <div class='assignment-content'>${assignment.content}</div>
                         <div class='assignment-weight'>${assignment.weight}%</div>
                         <div class='assignment-file'>
                             <a href="/static/${assignment.filename}" download="${assignment.filename}">${assignment.filename}</a>
                         </div>
+                    </div>
                         {% if account_type != 'Student' %}
                         ${canEdit ? `<button onclick="editAssignment(${assignment.id})">Edit</button>` : ''}
                         ${canDelete ? `<button onclick="deleteAssignment(${assignment.id})">Delete</button>` : ''}
@@ -818,7 +858,6 @@
         })
         .then(response => {
             if (response.ok) {
-                fetchAssignments(); // Refresh the list of articles
                 closeAsstModal(); 
                 return response.json();
             }
@@ -931,7 +970,6 @@
         .then(response => response.json())
         .then(data => {
             alert(data.message);
-            fetchAssignments();  // Refresh the articles list
         });
     }
     
@@ -942,7 +980,6 @@
         .then(response => {
             if (response.ok) {
                 alert("Assignment Deleted");
-                fetchAssignments(); 
             } else {
                 alert("Error Deleting Assignment");
             }

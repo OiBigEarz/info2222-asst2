@@ -379,6 +379,23 @@ def delete_assignment(assignment_id):
         return jsonify({"message": "Assignment deleted successfully!"}), 200
     except Exception as e:
         return jsonify({"message": str(e)}), 500
-    
+
+@app.route('/assignments/<int:assignment_id>', methods=['PUT'])
+def update_assignment(assignment_id):
+    try:
+        new_title = request.json.get("title")
+        new_content = request.json.get("content")
+        new_weighting = request.json.get("weight")
+
+        assignment = db.get_assignment(assignment_id)
+        if assignment is None:
+            return jsonify({'message': 'Assignment not found'}), 404
+
+        db.update_assignment(assignment_id, new_title, new_content, new_weighting)
+        return jsonify({"message": "Article updated successfully!"}), 200
+       
+    except Exception as e:  
+        return jsonify({"message": str(e)}), 500
+ 
 if __name__ == '__main__':
     socketio.run(app, host = 'localhost', port = 1204)
