@@ -24,12 +24,22 @@
     }
 
     #assignment-section {
-        width: 10%;
-        padding: 20px;
+        width: 15%;
+        padding: 10px;
         overflow-y: auto;    
-        background: rgba(255, 255, 255, 0.9);
     }
 
+    .button-container {
+        display: flex;
+        justify-content: center; 
+        margin-top: 10px;
+    }
+    
+    .button-container button {
+        margin: 0 5px; 
+    }
+
+    
     #chat-section {
         width: 30%;
         background: rgba(255, 255, 255, 0.9);
@@ -64,11 +74,6 @@
         box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     }
 
-    assignment {
-        background: #fff;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    }
-
     .article-title, .article-content, h2, ul {
         font-size: 16px;
         color: #333;
@@ -84,11 +89,19 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    text-align: center;
+    border-radius: 25px;
+    border: 2px solid #73AD21;
+    margin-bottom: 20px;
+    padding: 20px;
     }
 
     .assignment-container button {
-    margin-top: 60px; 
+        margin-top: 10px; 
+    }
+
+    .assignment-btn {
+        justify-content: center;
+        margin-top: 10px;  
     }
 
     .controls {
@@ -104,11 +117,22 @@
         font-size: 14px;
     }
 
-    button {
+
+    button{
+        transition-duration: 0.4s;
         background-color: #4CAF50;
         color: white;
+        padding: 14px 14px;
+        margin: 8px 0;
+        border: none;
         cursor: pointer;
+        border-radius: 5px;
     }
+    .button:hover {
+        background-color: #4CAF50; 
+        color: white;
+    }
+
     ul {
         list-style-type: none;
         padding: 0;
@@ -194,17 +218,6 @@
         border-radius: 5px;
     }
 
-    button[type="button"] {
-        background-color: #4CAF50;
-        color: white;
-        padding: 14px 20px;
-        margin: 8px 0;
-        border: none;
-        cursor: pointer;
-        width: 100%;
-        border-radius: 5px;
-    }
-
     .comment-section {
         background-color: #f9f9f9; /* Light grey background to differentiate comments */
         border: 1px solid #ddd; /* Slight border for definition */
@@ -268,7 +281,7 @@
     </div>
 
     <div id="assignment-section">
-        <h2 id = "assingment-title">Assignments</h2>
+        <h1 id = "assingment-title">Assignments</h1>
         {% if staff_type == 'Administrative' %}
         <button id="assignment-btn">Create New Assignment</button>
         {% endif %}
@@ -780,20 +793,25 @@
                 const canDelete = (role !== 'Student');
                 const assignmentHtml = `
                     <assignment id="assignment-${assignment.id}">
-                    <div class="assignment-container">
-                        <div class='assignment-title'><h3>${assignment.title}</h3></div>
+                    <div class="assignment-container" style="background-color:white;color:black;padding:20px;">
+                        <div class='assignment-title'><h2>${assignment.title}</h2></div>
                         <div class='assignment-content'>${assignment.content}</div>
-                        <div class='assignment-weight'>${assignment.weight}%</div>
+                        <div class='assignment-weight'><i>${assignment.weight}</i>%</div>
                         <div class='assignment-file'>
                             <a href="/static/${assignment.filename}" download="${assignment.filename}">${assignment.filename}</a>
                         </div>
-                    </div>
                         {% if account_type != 'Student' %}
-                        ${canEdit ? `<button onclick="editAssignment(${assignment.id})">Edit</button>` : ''}
-                        ${canDelete ? `<button onclick="deleteAssignment(${assignment.id})">Delete</button>` : ''}
+                        <div class="button-container">
+                            ${canEdit ? `<button onclick="editAssignment(${assignment.id})">Edit</button>` : ''}
+                            ${canDelete ? `<button onclick="deleteAssignment(${assignment.id})">Delete</button>` : ''}
+                        </div>
                         {% endif %}
+                    </div>
+\
+
                     </assignment> `;   
                 asstContainer.insertAdjacentHTML('beforeend', assignmentHtml);
+                asstContainer.insertAdjacentHTML('beforeend', '<hr style="display:none;"/>');
                 });
             })
             .catch(error => console.error('Error loading Assignments:', error));
