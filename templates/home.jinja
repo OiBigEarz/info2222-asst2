@@ -29,16 +29,31 @@
         overflow-y: auto;    
     }
 
-    .button-container {
-        display: flex;
-        justify-content: center; 
-        margin-top: 10px;
-    }
     
     .button-container button {
         margin: 0 5px; 
     }
 
+    .file-button {
+        background-color: #4CAF50;
+        color: white;
+        border: 1px solid white;
+        padding: 8px 12px;
+        text-decoration: none;
+        cursor: pointer;
+        border-radius: 5px;
+        transition: background-color 0.3s;
+    }
+    
+    .file-button:hover {
+        background-color: #4CAF50;
+    }
+
+    .friend-list {
+        text-align: left; 
+        justify-content: left; 
+
+    }
     
     #chat-section {
         width: 30%;
@@ -128,6 +143,7 @@
         cursor: pointer;
         border-radius: 5px;
     }
+    
     .button:hover {
         background-color: #4CAF50; 
         color: white;
@@ -798,7 +814,9 @@
                         <div class='assignment-content'>${assignment.content}</div>
                         <div class='assignment-weight'><i>${assignment.weight}</i>%</div>
                         <div class='assignment-file'>
-                            <a href="/static/${assignment.filename}" download="${assignment.filename}">${assignment.filename}</a>
+                            <a href="/static/${assignment.filename}" download="${assignment.filename}">
+                                <button class = "file-button">${assignment.filename}</button>
+                            </a>
                         </div>
                         {% if account_type != 'Student' %}
                         <div class="button-container">
